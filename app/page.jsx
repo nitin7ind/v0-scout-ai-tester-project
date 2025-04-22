@@ -175,9 +175,32 @@ export default function Dashboard() {
           {apiResponse && (
             <div className="mt-4">
               <p className="font-medium">API Response:</p>
-              <pre className="mt-2 p-2 bg-gray-100 dark:bg-gray-800 rounded-md overflow-x-auto text-xs">
-                {JSON.stringify(apiResponse, null, 2)}
-              </pre>
+              <div className="mt-2 p-2 bg-gray-100 dark:bg-gray-800 rounded-md overflow-x-auto text-xs">
+                <div>
+                  <strong>Status:</strong> {apiResponse.status || "N/A"}
+                  {apiResponse.message !== undefined && (
+                    <div>
+                      <strong>Message:</strong> {apiResponse.message}
+                    </div>
+                  )}
+                </div>
+
+                {apiResponse.data && (
+                  <div className="mt-2">
+                    <div>
+                      <strong>Images:</strong> {apiResponse.data.data?.length || 0}
+                    </div>
+                    <div>
+                      <strong>Total:</strong> {apiResponse.data.total || "N/A"}
+                    </div>
+                  </div>
+                )}
+
+                <details className="mt-2">
+                  <summary className="cursor-pointer text-blue-600 dark:text-blue-400">View Full Response</summary>
+                  <pre className="mt-2">{JSON.stringify(apiResponse, null, 2)}</pre>
+                </details>
+              </div>
             </div>
           )}
 

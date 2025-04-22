@@ -55,7 +55,42 @@ export default function ResultsDisplay({ results, stats, onDownload, pagination,
 
               {showApiResponse && (
                 <div className="mt-2 p-3 bg-gray-100 dark:bg-gray-700 rounded-md overflow-x-auto">
-                  <pre className="text-xs whitespace-pre-wrap">{JSON.stringify(apiResponse, null, 2)}</pre>
+                  <div className="mb-2">
+                    <strong>Status:</strong> {apiResponse.status || "N/A"}
+                    {apiResponse.message && (
+                      <div>
+                        <strong>Message:</strong> {apiResponse.message}
+                      </div>
+                    )}
+                  </div>
+
+                  {apiResponse.data && (
+                    <div className="mb-2">
+                      <div>
+                        <strong>Page:</strong> {apiResponse.data.page || "N/A"}
+                      </div>
+                      <div>
+                        <strong>Limit:</strong> {apiResponse.data.limit || "N/A"}
+                      </div>
+                      <div>
+                        <strong>Total Pages:</strong> {apiResponse.data.totalPages || "N/A"}
+                      </div>
+                      <div>
+                        <strong>Total Images:</strong> {apiResponse.data.total || "N/A"}
+                      </div>
+                      <div>
+                        <strong>Has Next Page:</strong> {apiResponse.data.hasNextPage ? "Yes" : "No"}
+                      </div>
+                      <div>
+                        <strong>Images in Response:</strong> {apiResponse.data.data?.length || 0}
+                      </div>
+                    </div>
+                  )}
+
+                  <details>
+                    <summary className="cursor-pointer text-blue-600 dark:text-blue-400">View Raw JSON</summary>
+                    <pre className="mt-2 text-xs whitespace-pre-wrap">{JSON.stringify(apiResponse, null, 2)}</pre>
+                  </details>
                 </div>
               )}
             </div>

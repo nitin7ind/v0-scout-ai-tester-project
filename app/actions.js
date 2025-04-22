@@ -6,7 +6,7 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 })
 
-// Updated fetchImages function with improved logging
+// Update the fetchImages function to handle the new response structure
 async function fetchImages(env, companyId, locationId, date, taskId, limit, page) {
   const baseUrl = env === "prod" ? "https://api-app-prod.wobot.ai" : "https://api-app-staging.wobot.ai"
 
@@ -53,20 +53,25 @@ async function fetchImages(env, companyId, locationId, date, taskId, limit, page
       throw new Error(`Failed to fetch images: ${response.status} - ${errorText}`)
     }
 
-    const data = await response.json()
+    const responseData = await response.json()
 
     // Log the complete response structure
-    console.log("Response structure:", JSON.stringify(data, null, 2))
+    console.log("Response structure:", JSON.stringify(responseData, null, 2))
 
-    // Extract images array and validate
-    const images = data.data || []
-    const totalCount = data.total || 0
+    // UPDATED: Extract images array from the nested data.data structure
+    const images = responseData.data?.data || []
 
-    console.log(`Images returned: ${images.length} of ${totalCount} total`)
+    // UPDATED: Extract pagination info from the nested data structure
+    const totalCount = responseData.data?.total || 0
+    const totalPages = responseData.data?.totalPages || 1
+    const currentPage = responseData.data?.page || page
+
+    console.log(`Images returned: ${images.length} of ${totalCount} total (page ${currentPage} of ${totalPages})`)
+
     if (images.length === 0) {
       console.warn("⚠️ API returned zero images. Check if this is expected.")
-      if (data.message) {
-        console.log(`API message: ${data.message}`)
+      if (responseData.message) {
+        console.log(`API message: ${responseData.message}`)
       }
     } else {
       console.log("First image URL:", images[0])
@@ -75,11 +80,11 @@ async function fetchImages(env, companyId, locationId, date, taskId, limit, page
     return {
       images,
       totalCount,
-      currentPage: page,
-      totalPages: Math.ceil(totalCount / limit) || 1,
+      currentPage,
+      totalPages,
       apiCall: fullUrl,
       curlCommand: curlCommand,
-      apiResponse: data, // Return the full API response for debugging
+      apiResponse: responseData, // Return the full API response for debugging
     }
   } catch (error) {
     console.error("=== SCOUT AI API ERROR ===")
