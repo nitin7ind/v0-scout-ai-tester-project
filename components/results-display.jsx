@@ -1,9 +1,11 @@
 "use client"
 
 import Image from "next/image"
+import { useState } from "react"
 
-export default function ResultsDisplay({ results, stats, onDownload, pagination, onPageChange, apiCall }) {
+export default function ResultsDisplay({ results, stats, onDownload, pagination, onPageChange, apiCall, apiResponse }) {
   const totalCount = stats.totalCount || stats.totalFetched
+  const [showApiResponse, setShowApiResponse] = useState(false)
 
   return (
     <div className="space-y-6">
@@ -18,7 +20,7 @@ export default function ResultsDisplay({ results, stats, onDownload, pagination,
                 <strong>Total images available:</strong> {totalCount}
               </p>
               <p>
-                <strong>Images on this page:</strong> {stats.processedCount}
+                <strong>Images on this page:</strong> {stats.processedCount} of {stats.totalFetched} fetched
               </p>
               {pagination && (
                 <p>
@@ -41,17 +43,37 @@ export default function ResultsDisplay({ results, stats, onDownload, pagination,
             </div>
           </div>
 
+          {apiResponse && (
+            <div className="mt-4">
+              <button
+                onClick={() => setShowApiResponse(!showApiResponse)}
+                className="text-blue-600 dark:text-blue-400 text-sm flex items-center gap-1"
+              >
+                {showApiResponse ? "Hide" : "Show"} API Response Details
+                <span className="text-xs">{showApiResponse ? "▲" : "▼"}</span>
+              </button>
+
+              {showApiResponse && (
+                <div className="mt-2 p-3 bg-gray-100 dark:bg-gray-700 rounded-md overflow-x-auto">
+                  <pre className="text-xs whitespace-pre-wrap">{JSON.stringify(apiResponse, null, 2)}</pre>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="flex flex-wrap gap-2 mt-6 justify-between">
             <div className="flex gap-2">
               <button
                 onClick={() => onDownload("csv")}
                 className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                disabled={results.length === 0}
               >
                 Download CSV
               </button>
               <button
                 onClick={() => onDownload("json")}
                 className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700"
+                disabled={results.length === 0}
               >
                 Download JSON
               </button>
@@ -86,8 +108,8 @@ export default function ResultsDisplay({ results, stats, onDownload, pagination,
         Analysis Results ({results.length})
         {pagination && totalCount > 0 && (
           <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">
-            Showing {(pagination.currentPage - 1) * results.length + 1}-
-            {Math.min(pagination.currentPage * results.length, totalCount)} of {totalCount}
+            Showing {results.length > 0 ? (pagination.currentPage - 1) * stats.totalFetched + 1 : 0}-
+            {Math.min(pagination.currentPage * stats.totalFetched, totalCount)} of {totalCount}
           </span>
         )}
       </h2>
@@ -95,7 +117,12 @@ export default function ResultsDisplay({ results, stats, onDownload, pagination,
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
         {results.length > 0 ? (
           results.map((item, index) => (
-            <div key={index} className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+            <div
+              key={index}
+              className={`bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden ${
+                item.error ? "border-red-300 dark:border-red-700 border-2" : ""
+              }`}
+            >
               <div className="relative w-full h-48">
                 {item.image.startsWith("http") ? (
                   <Image

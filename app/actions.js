@@ -6,7 +6,7 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 })
 
-// Updated fetchImages function to support pagination and task_id
+// Updated fetchImages function with improved logging
 async function fetchImages(env, companyId, locationId, date, taskId, limit, page) {
   const baseUrl = env === "prod" ? "https://api-app-prod.wobot.ai" : "https://api-app-staging.wobot.ai"
 
@@ -32,42 +32,58 @@ async function fetchImages(env, companyId, locationId, date, taskId, limit, page
   // Create curl command for display on frontend
   const curlCommand = `curl -X GET "${fullUrl}" -H "secret: wobotScoutAIImages"`
 
-  try {
-    console.log(`Making ScoutAI API Call: ${fullUrl}`)
+  console.log("=== SCOUT AI API REQUEST ===")
+  console.log(`URL: ${fullUrl}`)
+  console.log(`Headers: { secret: "wobotScoutAIImages" }`)
+  console.log(`Curl: ${curlCommand}`)
 
+  try {
     const response = await fetch(fullUrl, {
       headers: {
         secret: "wobotScoutAIImages",
       },
     })
 
+    console.log("=== SCOUT AI API RESPONSE ===")
+    console.log(`Status: ${response.status} ${response.statusText}`)
+
     if (!response.ok) {
       const errorText = await response.text()
-      console.error(`Failed to fetch images: ${response.status}`, errorText)
+      console.error(`Error response body: ${errorText}`)
       throw new Error(`Failed to fetch images: ${response.status} - ${errorText}`)
     }
 
     const data = await response.json()
 
-    // Log the ScoutAI API response to verify it's working
-    console.log("ScoutAI API Response:", data)
+    // Log the complete response structure
+    console.log("Response structure:", JSON.stringify(data, null, 2))
 
+    // Extract images array and validate
     const images = data.data || []
-    const totalCount = data.total || images.length
-    console.log(
-      `Successfully fetched ${images.length} images from ScoutAI API (page ${page} of ${Math.ceil(totalCount / limit)}, total: ${totalCount})`,
-    )
+    const totalCount = data.total || 0
+
+    console.log(`Images returned: ${images.length} of ${totalCount} total`)
+    if (images.length === 0) {
+      console.warn("⚠️ API returned zero images. Check if this is expected.")
+      if (data.message) {
+        console.log(`API message: ${data.message}`)
+      }
+    } else {
+      console.log("First image URL:", images[0])
+    }
 
     return {
       images,
       totalCount,
       currentPage: page,
-      totalPages: Math.ceil(totalCount / limit),
+      totalPages: Math.ceil(totalCount / limit) || 1,
       apiCall: fullUrl,
       curlCommand: curlCommand,
+      apiResponse: data, // Return the full API response for debugging
     }
   } catch (error) {
-    console.error("Error fetching images:", error)
+    console.error("=== SCOUT AI API ERROR ===")
+    console.error(error)
     return {
       images: [],
       totalCount: 0,
@@ -75,6 +91,7 @@ async function fetchImages(env, companyId, locationId, date, taskId, limit, page
       totalPages: 0,
       apiCall: fullUrl,
       curlCommand: curlCommand,
+      error: error.message || "Unknown error fetching images",
     }
   }
 }
@@ -98,6 +115,8 @@ export async function analyzeImages(formData, progressCallback) {
   let totalPages = 1
   let apiCall = ""
   let curlCommand = ""
+  let apiResponse = null
+  let errorMessage = ""
 
   if (inputType === "scoutai") {
     const env = formData.get("env")
@@ -107,6 +126,19 @@ export async function analyzeImages(formData, progressCallback) {
     const date = formData.get("date")
     const limit = Number.parseInt(formData.get("limit")) || 5
     const page = Number.parseInt(formData.get("page")) || 1
+
+    // Validate required parameters
+    if (!companyId) {
+      errorMessage = "Company ID is required"
+      console.error(errorMessage)
+      return { error: errorMessage }
+    }
+
+    if (!taskId) {
+      errorMessage = "Task ID is required"
+      console.error(errorMessage)
+      return { error: errorMessage }
+    }
 
     console.log(
       `ScoutAI parameters: env=${env}, companyId=${companyId}, locationId=${locationId}, taskId=${taskId}, date=${date}, limit=${limit}, page=${page}`,
@@ -120,36 +152,56 @@ export async function analyzeImages(formData, progressCallback) {
     totalPages = fetchResult.totalPages
     apiCall = fetchResult.apiCall
     curlCommand = fetchResult.curlCommand
+    apiResponse = fetchResult.apiResponse
+
+    if (fetchResult.error) {
+      errorMessage = fetchResult.error
+    }
 
     if (totalFetched === 0) {
-      console.warn("No images were fetched from the ScoutAI API")
+      console.warn("⚠️ No images were fetched from the ScoutAI API")
+      if (!errorMessage) {
+        errorMessage =
+          "No images were returned from the API. Please check your parameters (company ID, task ID, date) and try again."
+      }
     } else {
       console.log(
         `Total images fetched: ${totalFetched} (page ${currentPage} of ${totalPages}, total available: ${totalCount})`,
       )
     }
 
-    processedCount = totalFetched
+    processedCount = 0 // Reset to count successful processing
 
-    console.log(`Processing ${processedCount} images from page ${currentPage}`)
+    console.log(`Processing ${totalFetched} images from page ${currentPage}`)
 
     // Process images sequentially to update progress
     for (let i = 0; i < images.length; i++) {
       const imageUrl = images[i]
       console.log(`Processing image ${i + 1}/${images.length}: ${imageUrl}`)
 
-      const result = await getLabelFromImageUrl(imageUrl, prompt)
-      results.push(result)
+      try {
+        const result = await getLabelFromImageUrl(imageUrl, prompt)
+        results.push(result)
+        processedCount++
 
-      // Update tokens
-      const tokens = result.tokens || { prompt: 0, completion: 0, total: 0 }
-      promptTokens += tokens.prompt
-      completionTokens += tokens.completion
-      totalTokens += tokens.total
+        // Update tokens
+        const tokens = result.tokens || { prompt: 0, completion: 0, total: 0 }
+        promptTokens += tokens.prompt
+        completionTokens += tokens.completion
+        totalTokens += tokens.total
 
-      console.log(
-        `Image ${i + 1} processed. Tokens used: prompt=${tokens.prompt}, completion=${tokens.completion}, total=${tokens.total}`,
-      )
+        console.log(
+          `Image ${i + 1} processed. Tokens used: prompt=${tokens.prompt}, completion=${tokens.completion}, total=${tokens.total}`,
+        )
+      } catch (error) {
+        console.error(`Failed to process image ${i + 1}:`, error)
+        results.push({
+          image: imageUrl,
+          label: `Error: ${error.message || "Failed to process image"}`,
+          tokens: { prompt: 0, completion: 0, total: 0 },
+          error: true,
+        })
+      }
 
       // Update progress
       if (progressCallback) {
@@ -163,37 +215,45 @@ export async function analyzeImages(formData, progressCallback) {
 
     if (manualFile && manualFile.size > 0) {
       console.log(`Processing uploaded file: ${manualFile.name}, size: ${manualFile.size} bytes`)
-      const result = await getLabelFromUploadedFile(manualFile, prompt)
-      results.push(result)
-      const tokens = result.tokens || { prompt: 0, completion: 0, total: 0 }
-      promptTokens += tokens.prompt
-      completionTokens += tokens.completion
-      totalTokens += tokens.total
-      console.log(
-        `File processed. Tokens used: prompt=${tokens.prompt}, completion=${tokens.completion}, total=${tokens.total}`,
-      )
+      try {
+        const result = await getLabelFromUploadedFile(manualFile, prompt)
+        results.push(result)
+        processedCount++
+        const tokens = result.tokens || { prompt: 0, completion: 0, total: 0 }
+        promptTokens += tokens.prompt
+        completionTokens += tokens.completion
+        totalTokens += tokens.total
+        console.log(
+          `File processed. Tokens used: prompt=${tokens.prompt}, completion=${tokens.completion}, total=${tokens.total}`,
+        )
+      } catch (error) {
+        console.error("Failed to process uploaded file:", error)
+        errorMessage = `Error processing uploaded file: ${error.message}`
+      }
     } else if (manualUrl) {
       console.log(`Processing image from URL: ${manualUrl}`)
-      const result = await getLabelFromImageUrl(manualUrl, prompt)
-      results.push(result)
-      const tokens = result.tokens || { prompt: 0, completion: 0, total: 0 }
-      promptTokens += tokens.prompt
-      completionTokens += tokens.completion
-      totalTokens += tokens.total
-      console.log(
-        `URL image processed. Tokens used: prompt=${tokens.prompt}, completion=${tokens.completion}, total=${tokens.total}`,
-      )
+      try {
+        const result = await getLabelFromImageUrl(manualUrl, prompt)
+        results.push(result)
+        processedCount++
+        const tokens = result.tokens || { prompt: 0, completion: 0, total: 0 }
+        promptTokens += tokens.prompt
+        completionTokens += tokens.completion
+        totalTokens += tokens.total
+        console.log(
+          `URL image processed. Tokens used: prompt=${tokens.prompt}, completion=${tokens.completion}, total=${tokens.total}`,
+        )
+      } catch (error) {
+        console.error("Failed to process image URL:", error)
+        errorMessage = `Error processing image URL: ${error.message}`
+      }
     } else {
-      console.warn("No image file or URL provided for manual input")
+      errorMessage = "No image file or URL provided for manual input"
+      console.warn(errorMessage)
     }
 
-    processedCount = results.length
-    totalFetched = processedCount
-    totalCount = processedCount
-
-    if (progressCallback) {
-      progressCallback(1, 1)
-    }
+    totalFetched = manualFile || manualUrl ? 1 : 0
+    totalCount = totalFetched
   }
 
   console.log(`Analysis complete. Total images processed: ${processedCount}/${totalFetched}`)
@@ -211,13 +271,19 @@ export async function analyzeImages(formData, progressCallback) {
     totalPages,
     apiCall,
     curlCommand,
+    apiResponse,
+    error: errorMessage,
   }
 }
 
 async function getLabelFromImageUrl(imageUrl, prompt) {
   try {
+    console.log(`Fetching image from URL: ${imageUrl}`)
     const imgResponse = await fetch(imageUrl)
+
     if (!imgResponse.ok) {
+      const errorText = await imgResponse.text()
+      console.error(`Failed to fetch image (${imgResponse.status}): ${errorText}`)
       throw new Error(`Failed to fetch image: ${imgResponse.status}`)
     }
 
@@ -225,38 +291,34 @@ async function getLabelFromImageUrl(imageUrl, prompt) {
     const buffer = Buffer.from(arrayBuffer)
     const base64Image = buffer.toString("base64")
     const imageDataUri = `data:image/jpeg;base64,${base64Image}`
+    console.log("Image fetched and converted to base64 successfully")
 
     return await callGpt(prompt, imageDataUri, imageUrl)
   } catch (error) {
     console.error("Error processing image URL:", error)
-    return {
-      image: imageUrl,
-      label: `Error fetching image: ${error instanceof Error ? error.message : String(error)}`,
-      tokens: { prompt: 0, completion: 0, total: 0 },
-    }
+    throw new Error(`Error fetching image: ${error.message || String(error)}`)
   }
 }
 
 async function getLabelFromUploadedFile(file, prompt) {
   try {
+    console.log(`Processing uploaded file: ${file.name}, size: ${file.size} bytes`)
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
     const base64Image = buffer.toString("base64")
     const imageDataUri = `data:image/jpeg;base64,${base64Image}`
+    console.log("File processed and converted to base64 successfully")
 
     return await callGpt(prompt, imageDataUri, "Uploaded Image")
   } catch (error) {
     console.error("Error processing uploaded file:", error)
-    return {
-      image: "Uploaded Image",
-      label: `Error reading upload: ${error instanceof Error ? error.message : String(error)}`,
-      tokens: { prompt: 0, completion: 0, total: 0 },
-    }
+    throw new Error(`Error reading upload: ${error.message || String(error)}`)
   }
 }
 
 async function callGpt(prompt, imageDataUri, imageSource) {
   try {
+    console.log(`Calling GPT for image: ${imageSource.substring(0, 50)}...`)
     // Ensure we're using gpt-4o-mini model
     const chatResponse = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -273,6 +335,7 @@ async function callGpt(prompt, imageDataUri, imageSource) {
     })
 
     const usage = chatResponse.usage || { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }
+    console.log(`GPT response received. Tokens: ${usage.total_tokens}`)
 
     return {
       image: imageSource,
@@ -285,10 +348,6 @@ async function callGpt(prompt, imageDataUri, imageSource) {
     }
   } catch (error) {
     console.error("Error calling GPT:", error)
-    return {
-      image: imageSource,
-      label: `Error from GPT: ${error instanceof Error ? error.message : String(error)}`,
-      tokens: { prompt: 0, completion: 0, total: 0 },
-    }
+    throw new Error(`Error from GPT: ${error.message || String(error)}`)
   }
 }

@@ -13,6 +13,7 @@ export default function Dashboard() {
   const [error, setError] = useState(null)
   const [apiCall, setApiCall] = useState("")
   const [curlCommand, setCurlCommand] = useState("")
+  const [apiResponse, setApiResponse] = useState(null)
   const [pagination, setPagination] = useState({
     currentPage: 1,
     totalPages: 1,
@@ -34,6 +35,7 @@ export default function Dashboard() {
     setError(null)
     setApiCall("")
     setCurlCommand("")
+    setApiResponse(null)
 
     try {
       console.log("Starting image analysis...")
@@ -44,24 +46,42 @@ export default function Dashboard() {
       })
 
       console.log("Analysis complete:", response)
-      setResults(response.results)
+
+      // Check for errors first
+      if (response.error) {
+        setError(response.error)
+        console.error("Error returned from analyzeImages:", response.error)
+      }
+
+      setResults(response.results || [])
       setStats({
-        totalFetched: response.totalFetched,
-        processedCount: response.processedCount,
-        promptTokens: response.promptTokens,
-        completionTokens: response.completionTokens,
-        totalTokens: response.totalTokens,
+        totalFetched: response.totalFetched || 0,
+        processedCount: response.processedCount || 0,
+        promptTokens: response.promptTokens || 0,
+        completionTokens: response.completionTokens || 0,
+        totalTokens: response.totalTokens || 0,
       })
       setPagination({
         currentPage: response.currentPage || 1,
         totalPages: response.totalPages || 1,
-        totalCount: response.totalCount || response.totalFetched,
+        totalCount: response.totalCount || response.totalFetched || 0,
       })
       setApiCall(response.apiCall || "")
       setCurlCommand(response.curlCommand || "")
+      setApiResponse(response.apiResponse)
 
-      if (response.results.length === 0) {
-        setError("No images were processed. Please check your input parameters and try again.")
+      // Show error if no images were processed
+      if (!response.error && (!response.results || response.results.length === 0)) {
+        setError(
+          "No images were processed. The ScoutAI API returned zero images. Please check your input parameters (company ID, task ID, date) and try again.",
+        )
+      }
+
+      // Show warning if some images failed processing
+      if (response.processedCount < response.totalFetched) {
+        console.warn(
+          `Warning: Only ${response.processedCount} of ${response.totalFetched} images were successfully processed.`,
+        )
       }
     } catch (error) {
       console.error("Error analyzing images:", error)
@@ -149,7 +169,27 @@ export default function Dashboard() {
 
       {error && (
         <div className="mt-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-red-600 dark:text-red-400">
+          <h3 className="font-medium mb-2">Error</h3>
           <p>{error}</p>
+
+          {apiResponse && (
+            <div className="mt-4">
+              <p className="font-medium">API Response:</p>
+              <pre className="mt-2 p-2 bg-gray-100 dark:bg-gray-800 rounded-md overflow-x-auto text-xs">
+                {JSON.stringify(apiResponse, null, 2)}
+              </pre>
+            </div>
+          )}
+
+          <div className="mt-4">
+            <h4 className="font-medium mb-1">Troubleshooting Tips:</h4>
+            <ul className="list-disc pl-5 text-sm">
+              <li>Verify your Company ID and Task ID are correct</li>
+              <li>Check that the date is valid and has images available</li>
+              <li>Try a different page number if available</li>
+              <li>Check the console logs for more detailed error information</li>
+            </ul>
+          </div>
         </div>
       )}
 
@@ -164,6 +204,7 @@ export default function Dashboard() {
           pagination={pagination}
           onPageChange={handlePageChange}
           apiCall={apiCall}
+          apiResponse={apiResponse}
         />
       )}
     </div>
