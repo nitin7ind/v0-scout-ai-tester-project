@@ -6,7 +6,7 @@ import { Loader2, Moon, Sun } from "lucide-react"
 import { useTheme } from "next-themes"
 import { Button } from "@/components/ui/button"
 import { analyzeImages } from "@/app/actions"
-import type { AnalysisResult } from "@/lib/types"
+import type { AnalysisResult, PaginationInfo } from "@/lib/types"
 import ResultsDisplay from "@/components/results-display"
 import DashboardForm from "@/components/dashboard-form"
 
@@ -15,6 +15,11 @@ export default function Dashboard() {
   const [isLoading, setIsLoading] = useState(false)
   const [progress, setProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  const [pagination, setPagination] = useState<PaginationInfo>({
+    currentPage: 1,
+    totalPages: 1,
+    totalCount: 0,
+  })
   const [stats, setStats] = useState({
     totalFetched: 0,
     processedCount: 0,
@@ -48,6 +53,11 @@ export default function Dashboard() {
         completionTokens: response.completionTokens,
         totalTokens: response.totalTokens,
       })
+      setPagination({
+        currentPage: response.currentPage || 1,
+        totalPages: response.totalPages || 1,
+        totalCount: response.totalCount || response.totalFetched,
+      })
 
       if (response.results.length === 0) {
         setError("No images were processed. Please check your input parameters and try again.")
@@ -58,6 +68,17 @@ export default function Dashboard() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const handlePageChange = (page: number) => {
+    // Create a new FormData object with the current form values
+    const form = document.querySelector("form") as HTMLFormElement
+    if (!form) return
+
+    const formData = new FormData(form)
+    formData.set("page", page.toString())
+
+    handleAnalyze(formData)
   }
 
   const handleDownload = async (format: "csv" | "json") => {
@@ -117,7 +138,12 @@ export default function Dashboard() {
         </Button>
       </div>
 
-      <DashboardForm onSubmit={handleAnalyze} />
+      <DashboardForm
+        onSubmit={handleAnalyze}
+        currentPage={pagination.currentPage}
+        totalPages={pagination.totalPages}
+        onPageChange={handlePageChange}
+      />
 
       {isLoading && (
         <div className="mt-6 text-center">
@@ -136,7 +162,18 @@ export default function Dashboard() {
         </div>
       )}
 
-      {results.length > 0 && <ResultsDisplay results={results} stats={stats} onDownload={handleDownload} />}
+      {results.length > 0 && (
+        <ResultsDisplay
+          results={results}
+          stats={{
+            ...stats,
+            totalCount: pagination.totalCount,
+          }}
+          onDownload={handleDownload}
+          pagination={pagination}
+          onPageChange={handlePageChange}
+        />
+      )}
     </div>
   )
 }

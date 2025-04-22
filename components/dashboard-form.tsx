@@ -14,9 +14,12 @@ import { getCurrentDate } from "@/lib/utils"
 
 interface DashboardFormProps {
   onSubmit: (formData: FormData) => Promise<void>
+  currentPage?: number
+  totalPages?: number
+  onPageChange?: (page: number) => void
 }
 
-export default function DashboardForm({ onSubmit }: DashboardFormProps) {
+export default function DashboardForm({ onSubmit, currentPage = 1, totalPages = 1, onPageChange }: DashboardFormProps) {
   const [inputType, setInputType] = useState<"scoutai" | "manual">("scoutai")
   const currentDate = getCurrentDate()
 
@@ -88,19 +91,60 @@ export default function DashboardForm({ onSubmit }: DashboardFormProps) {
                 </div>
 
                 <div className="space-y-2">
+                  <Label htmlFor="task_id">Task ID (optional)</Label>
+                  <Input id="task_id" name="task_id" placeholder="Task ID" />
+                </div>
+
+                <div className="space-y-2">
                   <Label htmlFor="date">Date</Label>
                   <Input id="date" name="date" type="date" defaultValue={currentDate} required />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="start">Start Index</Label>
-                  <Input id="start" name="start" type="number" min="0" defaultValue="0" required />
+                  <Label htmlFor="limit">Images Per Page</Label>
+                  <Input id="limit" name="limit" type="number" min="1" defaultValue="5" required />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="space-y-2">
+                  <Label htmlFor="page">Page</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="page"
+                      name="page"
+                      type="number"
+                      min="1"
+                      defaultValue={currentPage.toString()}
+                      className="w-20"
+                      required
+                    />
+                    <span className="text-sm text-muted-foreground">of {totalPages || 1}</span>
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="end">End Index</Label>
-                  <Input id="end" name="end" type="number" min="1" defaultValue="5" required />
-                </div>
+                {onPageChange && totalPages > 1 && (
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={currentPage <= 1}
+                      onClick={() => onPageChange(currentPage - 1)}
+                    >
+                      Previous
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={currentPage >= totalPages}
+                      onClick={() => onPageChange(currentPage + 1)}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
           )}

@@ -7,19 +7,36 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 })
 
-// Improve the fetchImages function to log how many images were returned
-async function fetchImages(env: string, companyId: string, locationId: string, date: string) {
+// Updated fetchImages function to support pagination and task_id
+async function fetchImages(
+  env: string,
+  companyId: string,
+  locationId: string,
+  date: string,
+  taskId: string,
+  limit: number,
+  page: number,
+) {
   const baseUrl = env === "prod" ? "https://api-app-prod.wobot.ai" : "https://api-app-staging.wobot.ai"
 
-  const endpoint = `${baseUrl}/app/v1/scoutai/images/get`
+  // Updated endpoint to match the provided URL structure
+  const endpoint = `${baseUrl}/app/v1/scoutai/images/get/50/1`
+
+  // Build query parameters
   const params = new URLSearchParams({
     company: companyId,
     date: date,
+    limit: limit.toString(),
+    page: page.toString(),
   })
 
-  if (locationId) {
-    params.append("location", locationId)
+  // Add task parameter if provided
+  if (taskId) {
+    params.append("task", taskId)
   }
+
+  // Add location parameter (even if empty)
+  params.append("location", locationId || "")
 
   try {
     console.log(`Fetching images from ${endpoint} with params:`, Object.fromEntries(params.entries()))
@@ -38,15 +55,29 @@ async function fetchImages(env: string, companyId: string, locationId: string, d
 
     const data = await response.json()
     const images = data.data || []
-    console.log(`Successfully fetched ${images.length} images from ScoutAI API`)
-    return images
+    const totalCount = data.total || images.length
+    console.log(
+      `Successfully fetched ${images.length} images from ScoutAI API (page ${page} of ${Math.ceil(totalCount / limit)}, total: ${totalCount})`,
+    )
+
+    return {
+      images,
+      totalCount,
+      currentPage: page,
+      totalPages: Math.ceil(totalCount / limit),
+    }
   } catch (error) {
     console.error("Error fetching images:", error)
-    return []
+    return {
+      images: [],
+      totalCount: 0,
+      currentPage: page,
+      totalPages: 0,
+    }
   }
 }
 
-// Enhance the analyzeImages function to log more details
+// Update the analyzeImages function to handle pagination
 export async function analyzeImages(formData: FormData, progressCallback?: (current: number, total: number) => void) {
   const prompt = formData.get("prompt") as string
   const inputType = formData.get("input_type") as string
@@ -60,37 +91,46 @@ export async function analyzeImages(formData: FormData, progressCallback?: (curr
   let promptTokens = 0
   let completionTokens = 0
   let totalTokens = 0
+  let totalCount = 0
+  let currentPage = 1
+  let totalPages = 1
 
   if (inputType === "scoutai") {
     const env = formData.get("env") as string
     const companyId = formData.get("company_id") as string
     const locationId = formData.get("location_id") as string
+    const taskId = formData.get("task_id") as string
     const date = formData.get("date") as string
-    const start = Number.parseInt(formData.get("start") as string)
-    const end = Number.parseInt(formData.get("end") as string)
+    const limit = Number.parseInt(formData.get("limit") as string) || 5
+    const page = Number.parseInt(formData.get("page") as string) || 1
 
     console.log(
-      `ScoutAI parameters: env=${env}, companyId=${companyId}, locationId=${locationId}, date=${date}, range=${start}-${end}`,
+      `ScoutAI parameters: env=${env}, companyId=${companyId}, locationId=${locationId}, taskId=${taskId}, date=${date}, limit=${limit}, page=${page}`,
     )
 
-    const images = await fetchImages(env, companyId, locationId, date)
+    const fetchResult = await fetchImages(env, companyId, locationId, date, taskId, limit, page)
+    const images = fetchResult.images
     totalFetched = images.length
+    totalCount = fetchResult.totalCount
+    currentPage = fetchResult.currentPage
+    totalPages = fetchResult.totalPages
 
     if (totalFetched === 0) {
       console.warn("No images were fetched from the ScoutAI API")
     } else {
-      console.log(`Total images fetched: ${totalFetched}`)
+      console.log(
+        `Total images fetched: ${totalFetched} (page ${currentPage} of ${totalPages}, total available: ${totalCount})`,
+      )
     }
 
-    const selectedImages = images.slice(start, end)
-    processedCount = selectedImages.length
+    processedCount = totalFetched
 
-    console.log(`Processing ${processedCount} images (index ${start} to ${end})`)
+    console.log(`Processing ${processedCount} images from page ${currentPage}`)
 
     // Process images sequentially to update progress
-    for (let i = 0; i < selectedImages.length; i++) {
-      const imageUrl = selectedImages[i]
-      console.log(`Processing image ${i + 1}/${selectedImages.length}: ${imageUrl}`)
+    for (let i = 0; i < images.length; i++) {
+      const imageUrl = images[i]
+      console.log(`Processing image ${i + 1}/${images.length}: ${imageUrl}`)
 
       const result = await getLabelFromImageUrl(imageUrl, prompt)
       results.push(result)
@@ -107,7 +147,7 @@ export async function analyzeImages(formData: FormData, progressCallback?: (curr
 
       // Update progress
       if (progressCallback) {
-        progressCallback(i + 1, selectedImages.length)
+        progressCallback(i + 1, images.length)
       }
     }
   } else {
@@ -143,6 +183,9 @@ export async function analyzeImages(formData: FormData, progressCallback?: (curr
 
     processedCount = results.length
     totalFetched = processedCount
+    totalCount = processedCount
+    currentPage = 1
+    totalPages = 1
 
     if (progressCallback) {
       progressCallback(1, 1)
@@ -159,6 +202,9 @@ export async function analyzeImages(formData: FormData, progressCallback?: (curr
     promptTokens,
     completionTokens,
     totalTokens,
+    totalCount,
+    currentPage,
+    totalPages,
   }
 }
 
@@ -206,7 +252,7 @@ async function getLabelFromUploadedFile(file: File, prompt: string): Promise<Ana
 async function callGpt(prompt: string, imageDataUri: string, imageSource: string): Promise<AnalysisResult> {
   try {
     const chatResponse = await openai.chat.completions.create({
-      model: "gpt-4-vision-preview",
+      model: "gpt-4o-mini",
       messages: [
         {
           role: "user",

@@ -7,3 +7,9 @@ export interface AnalysisResult {
     total: number
   }
 }
+
+export interface PaginationInfo {
+  currentPage: number
+  totalPages: number
+  totalCount: number
+}
