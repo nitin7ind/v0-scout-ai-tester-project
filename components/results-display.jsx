@@ -2,7 +2,7 @@
 
 import Image from "next/image"
 
-export default function ResultsDisplay({ results, stats, onDownload, pagination, onPageChange, apiCall, curlCommand }) {
+export default function ResultsDisplay({ results, stats, onDownload, pagination, onPageChange, apiCall }) {
   const totalCount = stats.totalCount || stats.totalFetched
 
   return (
@@ -10,25 +10,6 @@ export default function ResultsDisplay({ results, stats, onDownload, pagination,
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <div className="space-y-4">
           <h2 className="text-xl font-semibold mb-4">Processing Summary</h2>
-
-          {apiCall && (
-            <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-md overflow-x-auto mb-4">
-              <h3 className="text-sm font-medium mb-1">API Call:</h3>
-              <code className="text-xs break-all">{apiCall}</code>
-              <p className="text-xs mt-1 text-gray-500 dark:text-gray-400">
-                Headers: {`{ secret: "wobotScoutAIImages" }`}
-              </p>
-
-              {curlCommand && (
-                <>
-                  <h3 className="text-sm font-medium mt-3 mb-1">cURL Command:</h3>
-                  <div className="bg-gray-200 dark:bg-gray-800 p-2 rounded-md overflow-x-auto">
-                    <code className="text-xs break-all whitespace-pre-wrap">{curlCommand}</code>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">

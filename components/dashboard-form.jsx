@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { getCurrentDate } from "@/lib/utils"
 
-export default function DashboardForm({ onSubmit, currentPage = 1, totalPages = 1, onPageChange }) {
+export default function DashboardForm({ onSubmit, currentPage = 1, totalPages = 1, onPageChange, curlCommand }) {
   const [inputType, setInputType] = useState("scoutai")
   const currentDate = getCurrentDate()
 
@@ -223,6 +223,16 @@ export default function DashboardForm({ onSubmit, currentPage = 1, totalPages = 
           Analyze
         </button>
       </form>
+
+      {/* Display curl command below the button */}
+      {curlCommand && (
+        <div className="mt-4 p-3 bg-gray-100 dark:bg-gray-700 rounded-md overflow-x-auto">
+          <h3 className="text-sm font-medium mb-1">ScoutAI API Call:</h3>
+          <div className="bg-gray-200 dark:bg-gray-800 p-2 rounded-md overflow-x-auto">
+            <code className="text-xs break-all whitespace-pre-wrap">{curlCommand}</code>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

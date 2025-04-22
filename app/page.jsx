@@ -133,6 +133,7 @@ export default function Dashboard() {
         currentPage={pagination.currentPage}
         totalPages={pagination.totalPages}
         onPageChange={handlePageChange}
+        curlCommand={curlCommand}
       />
 
       {isLoading && (
@@ -163,7 +164,6 @@ export default function Dashboard() {
           pagination={pagination}
           onPageChange={handlePageChange}
           apiCall={apiCall}
-          curlCommand={curlCommand}
         />
       )}
     </div>

@@ -29,13 +29,11 @@ async function fetchImages(env, companyId, locationId, date, taskId, limit, page
   // Construct the full URL for logging
   const fullUrl = `${endpoint}?${params.toString()}`
 
-  // Create curl command for display
+  // Create curl command for display on frontend
   const curlCommand = `curl -X GET "${fullUrl}" -H "secret: wobotScoutAIImages"`
 
   try {
-    console.log(`API Call: ${fullUrl}`)
-    console.log(`Headers: { secret: "wobotScoutAIImages" }`)
-    console.log(`Curl command: ${curlCommand}`)
+    console.log(`Making ScoutAI API Call: ${fullUrl}`)
 
     const response = await fetch(fullUrl, {
       headers: {
@@ -51,8 +49,8 @@ async function fetchImages(env, companyId, locationId, date, taskId, limit, page
 
     const data = await response.json()
 
-    // Log the full response
-    console.log("API Response:", JSON.stringify(data, null, 2))
+    // Log the ScoutAI API response to verify it's working
+    console.log("ScoutAI API Response:", data)
 
     const images = data.data || []
     const totalCount = data.total || images.length
@@ -66,7 +64,7 @@ async function fetchImages(env, companyId, locationId, date, taskId, limit, page
       currentPage: page,
       totalPages: Math.ceil(totalCount / limit),
       apiCall: fullUrl,
-      curlCommand: curlCommand, // Return the curl command for display
+      curlCommand: curlCommand,
     }
   } catch (error) {
     console.error("Error fetching images:", error)
@@ -75,7 +73,7 @@ async function fetchImages(env, companyId, locationId, date, taskId, limit, page
       totalCount: 0,
       currentPage: page,
       totalPages: 0,
-      apiCall: `${endpoint}?${params.toString()}`,
+      apiCall: fullUrl,
       curlCommand: curlCommand,
     }
   }
@@ -259,6 +257,7 @@ async function getLabelFromUploadedFile(file, prompt) {
 
 async function callGpt(prompt, imageDataUri, imageSource) {
   try {
+    // Ensure we're using gpt-4o-mini model
     const chatResponse = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
