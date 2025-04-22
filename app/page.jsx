@@ -39,20 +39,36 @@ export default function Dashboard() {
 
     try {
       console.log("Starting image analysis...")
-      const response = await analyzeImages(formData, (current, total) => {
+
+      // Create a local copy of the FormData to avoid serialization issues
+      const formDataObj = {}
+      for (const [key, value] of formData.entries()) {
+        formDataObj[key] = value
+      }
+      console.log("Form data:", formDataObj)
+
+      // Set up progress tracking
+      const progressCounter = 0
+      const updateProgress = (current, total) => {
         const percent = Math.round((current / total) * 100)
         setProgress(percent)
         console.log(`Processing progress: ${percent}% (${current}/${total})`)
-      })
+      }
 
+      const response = await analyzeImages(formData)
       console.log("Analysis complete:", response)
 
       // Check for errors first
       if (response.error) {
         setError(response.error)
         console.error("Error returned from analyzeImages:", response.error)
+        return
       }
 
+      // Update progress to 100% when done
+      setProgress(100)
+
+      // Update state with response data
       setResults(response.results || [])
       setStats({
         totalFetched: response.totalFetched || 0,
@@ -211,6 +227,7 @@ export default function Dashboard() {
               <li>Check that the date is valid and has images available</li>
               <li>Try a different page number if available</li>
               <li>Check the console logs for more detailed error information</li>
+              <li>Ensure your OpenAI API key is valid and has sufficient credits</li>
             </ul>
           </div>
         </div>

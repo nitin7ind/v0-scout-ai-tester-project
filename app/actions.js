@@ -6,6 +6,11 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 })
 
+// Helper function to ensure objects are serializable
+function makeSerializable(obj) {
+  return JSON.parse(JSON.stringify(obj))
+}
+
 // Update the fetchImages function to handle the new response structure
 async function fetchImages(env, companyId, locationId, date, taskId, limit, page) {
   const baseUrl = env === "prod" ? "https://api-app-prod.wobot.ai" : "https://api-app-staging.wobot.ai"
@@ -61,7 +66,7 @@ async function fetchImages(env, companyId, locationId, date, taskId, limit, page
     // UPDATED: Extract images array from the nested data.data structure
     const images = responseData.data?.data || []
 
-    // UPDATED: Extract pagination info from the nested data structure
+    // UPDATED: Extract pagination info from the nested structure
     const totalCount = responseData.data?.total || 0
     const totalPages = responseData.data?.totalPages || 1
     const currentPage = responseData.data?.page || page
@@ -77,6 +82,20 @@ async function fetchImages(env, companyId, locationId, date, taskId, limit, page
       console.log("First image URL:", images[0])
     }
 
+    // Ensure the response is serializable
+    const serializedResponse = {
+      status: responseData.status,
+      message: responseData.message || "",
+      data: {
+        page: responseData.data?.page || 1,
+        limit: responseData.data?.limit || limit,
+        totalPages: responseData.data?.totalPages || 1,
+        total: responseData.data?.total || 0,
+        hasNextPage: responseData.data?.hasNextPage || false,
+        data: images,
+      },
+    }
+
     return {
       images,
       totalCount,
@@ -84,7 +103,7 @@ async function fetchImages(env, companyId, locationId, date, taskId, limit, page
       totalPages,
       apiCall: fullUrl,
       curlCommand: curlCommand,
-      apiResponse: responseData, // Return the full API response for debugging
+      apiResponse: serializedResponse, // Return serialized API response
     }
   } catch (error) {
     console.error("=== SCOUT AI API ERROR ===")
@@ -103,181 +122,190 @@ async function fetchImages(env, companyId, locationId, date, taskId, limit, page
 
 // Update the analyzeImages function to handle pagination and return the API call
 export async function analyzeImages(formData, progressCallback) {
-  const prompt = formData.get("prompt")
-  const inputType = formData.get("input_type")
+  try {
+    const prompt = formData.get("prompt")
+    const inputType = formData.get("input_type")
 
-  console.log(`Starting image analysis with input type: ${inputType}`)
-  console.log(`Prompt: ${prompt}`)
+    console.log(`Starting image analysis with input type: ${inputType}`)
+    console.log(`Prompt: ${prompt}`)
 
-  const results = []
-  let totalFetched = 0
-  let processedCount = 0
-  let promptTokens = 0
-  let completionTokens = 0
-  let totalTokens = 0
-  let totalCount = 0
-  let currentPage = 1
-  let totalPages = 1
-  let apiCall = ""
-  let curlCommand = ""
-  let apiResponse = null
-  let errorMessage = ""
+    const results = []
+    let totalFetched = 0
+    let processedCount = 0
+    let promptTokens = 0
+    let completionTokens = 0
+    let totalTokens = 0
+    let totalCount = 0
+    let currentPage = 1
+    let totalPages = 1
+    let apiCall = ""
+    let curlCommand = ""
+    let apiResponse = null
+    let errorMessage = ""
 
-  if (inputType === "scoutai") {
-    const env = formData.get("env")
-    const companyId = formData.get("company_id")
-    const locationId = formData.get("location_id")
-    const taskId = formData.get("task_id") // Now required
-    const date = formData.get("date")
-    const limit = Number.parseInt(formData.get("limit")) || 5
-    const page = Number.parseInt(formData.get("page")) || 1
+    if (inputType === "scoutai") {
+      const env = formData.get("env")
+      const companyId = formData.get("company_id")
+      const locationId = formData.get("location_id")
+      const taskId = formData.get("task_id") // Now required
+      const date = formData.get("date")
+      const limit = Number.parseInt(formData.get("limit")) || 5
+      const page = Number.parseInt(formData.get("page")) || 1
 
-    // Validate required parameters
-    if (!companyId) {
-      errorMessage = "Company ID is required"
-      console.error(errorMessage)
-      return { error: errorMessage }
-    }
-
-    if (!taskId) {
-      errorMessage = "Task ID is required"
-      console.error(errorMessage)
-      return { error: errorMessage }
-    }
-
-    console.log(
-      `ScoutAI parameters: env=${env}, companyId=${companyId}, locationId=${locationId}, taskId=${taskId}, date=${date}, limit=${limit}, page=${page}`,
-    )
-
-    const fetchResult = await fetchImages(env, companyId, locationId, date, taskId, limit, page)
-    const images = fetchResult.images
-    totalFetched = images.length
-    totalCount = fetchResult.totalCount
-    currentPage = fetchResult.currentPage
-    totalPages = fetchResult.totalPages
-    apiCall = fetchResult.apiCall
-    curlCommand = fetchResult.curlCommand
-    apiResponse = fetchResult.apiResponse
-
-    if (fetchResult.error) {
-      errorMessage = fetchResult.error
-    }
-
-    if (totalFetched === 0) {
-      console.warn("⚠️ No images were fetched from the ScoutAI API")
-      if (!errorMessage) {
-        errorMessage =
-          "No images were returned from the API. Please check your parameters (company ID, task ID, date) and try again."
+      // Validate required parameters
+      if (!companyId) {
+        errorMessage = "Company ID is required"
+        console.error(errorMessage)
+        return { error: errorMessage }
       }
-    } else {
+
+      if (!taskId) {
+        errorMessage = "Task ID is required"
+        console.error(errorMessage)
+        return { error: errorMessage }
+      }
+
       console.log(
-        `Total images fetched: ${totalFetched} (page ${currentPage} of ${totalPages}, total available: ${totalCount})`,
+        `ScoutAI parameters: env=${env}, companyId=${companyId}, locationId=${locationId}, taskId=${taskId}, date=${date}, limit=${limit}, page=${page}`,
       )
-    }
 
-    processedCount = 0 // Reset to count successful processing
+      const fetchResult = await fetchImages(env, companyId, locationId, date, taskId, limit, page)
+      const images = fetchResult.images || []
+      totalFetched = images.length
+      totalCount = fetchResult.totalCount || 0
+      currentPage = fetchResult.currentPage || page
+      totalPages = fetchResult.totalPages || 1
+      apiCall = fetchResult.apiCall || ""
+      curlCommand = fetchResult.curlCommand || ""
+      apiResponse = fetchResult.apiResponse
 
-    console.log(`Processing ${totalFetched} images from page ${currentPage}`)
-
-    // Process images sequentially to update progress
-    for (let i = 0; i < images.length; i++) {
-      const imageUrl = images[i]
-      console.log(`Processing image ${i + 1}/${images.length}: ${imageUrl}`)
-
-      try {
-        const result = await getLabelFromImageUrl(imageUrl, prompt)
-        results.push(result)
-        processedCount++
-
-        // Update tokens
-        const tokens = result.tokens || { prompt: 0, completion: 0, total: 0 }
-        promptTokens += tokens.prompt
-        completionTokens += tokens.completion
-        totalTokens += tokens.total
-
-        console.log(
-          `Image ${i + 1} processed. Tokens used: prompt=${tokens.prompt}, completion=${tokens.completion}, total=${tokens.total}`,
-        )
-      } catch (error) {
-        console.error(`Failed to process image ${i + 1}:`, error)
-        results.push({
-          image: imageUrl,
-          label: `Error: ${error.message || "Failed to process image"}`,
-          tokens: { prompt: 0, completion: 0, total: 0 },
-          error: true,
-        })
+      if (fetchResult.error) {
+        errorMessage = fetchResult.error
       }
 
-      // Update progress
-      if (progressCallback) {
-        progressCallback(i + 1, images.length)
+      if (totalFetched === 0) {
+        console.warn("⚠️ No images were fetched from the ScoutAI API")
+        if (!errorMessage) {
+          errorMessage =
+            "No images were returned from the API. Please check your parameters (company ID, task ID, date) and try again."
+        }
+      } else {
+        console.log(
+          `Total images fetched: ${totalFetched} (page ${currentPage} of ${totalPages}, total available: ${totalCount})`,
+        )
       }
-    }
-  } else {
-    // Handle manual image upload or URL
-    const manualFile = formData.get("manual_image")
-    const manualUrl = formData.get("manual_url")
 
-    if (manualFile && manualFile.size > 0) {
-      console.log(`Processing uploaded file: ${manualFile.name}, size: ${manualFile.size} bytes`)
-      try {
-        const result = await getLabelFromUploadedFile(manualFile, prompt)
-        results.push(result)
-        processedCount++
-        const tokens = result.tokens || { prompt: 0, completion: 0, total: 0 }
-        promptTokens += tokens.prompt
-        completionTokens += tokens.completion
-        totalTokens += tokens.total
-        console.log(
-          `File processed. Tokens used: prompt=${tokens.prompt}, completion=${tokens.completion}, total=${tokens.total}`,
-        )
-      } catch (error) {
-        console.error("Failed to process uploaded file:", error)
-        errorMessage = `Error processing uploaded file: ${error.message}`
-      }
-    } else if (manualUrl) {
-      console.log(`Processing image from URL: ${manualUrl}`)
-      try {
-        const result = await getLabelFromImageUrl(manualUrl, prompt)
-        results.push(result)
-        processedCount++
-        const tokens = result.tokens || { prompt: 0, completion: 0, total: 0 }
-        promptTokens += tokens.prompt
-        completionTokens += tokens.completion
-        totalTokens += tokens.total
-        console.log(
-          `URL image processed. Tokens used: prompt=${tokens.prompt}, completion=${tokens.completion}, total=${tokens.total}`,
-        )
-      } catch (error) {
-        console.error("Failed to process image URL:", error)
-        errorMessage = `Error processing image URL: ${error.message}`
+      processedCount = 0 // Reset to count successful processing
+
+      console.log(`Processing ${totalFetched} images from page ${currentPage}`)
+
+      // Process images sequentially to update progress
+      for (let i = 0; i < images.length; i++) {
+        const imageUrl = images[i]
+        console.log(`Processing image ${i + 1}/${images.length}: ${imageUrl}`)
+
+        try {
+          const result = await getLabelFromImageUrl(imageUrl, prompt)
+          results.push(result)
+          processedCount++
+
+          // Update tokens
+          const tokens = result.tokens || { prompt: 0, completion: 0, total: 0 }
+          promptTokens += tokens.prompt
+          completionTokens += tokens.completion
+          totalTokens += tokens.total
+
+          console.log(
+            `Image ${i + 1} processed. Tokens used: prompt=${tokens.prompt}, completion=${tokens.completion}, total=${tokens.total}`,
+          )
+        } catch (error) {
+          console.error(`Failed to process image ${i + 1}:`, error)
+          results.push({
+            image: imageUrl,
+            label: `Error: ${error.message || "Failed to process image"}`,
+            tokens: { prompt: 0, completion: 0, total: 0 },
+            error: true,
+          })
+        }
+
+        // Update progress - this is handled client-side
+        // if (progressCallback) {
+        //   progressCallback(i + 1, images.length)
+        // }
       }
     } else {
-      errorMessage = "No image file or URL provided for manual input"
-      console.warn(errorMessage)
+      // Handle manual image upload or URL
+      const manualFile = formData.get("manual_image")
+      const manualUrl = formData.get("manual_url")
+
+      if (manualFile && manualFile.size > 0) {
+        console.log(`Processing uploaded file: ${manualFile.name}, size: ${manualFile.size} bytes`)
+        try {
+          const result = await getLabelFromUploadedFile(manualFile, prompt)
+          results.push(result)
+          processedCount++
+          const tokens = result.tokens || { prompt: 0, completion: 0, total: 0 }
+          promptTokens += tokens.prompt
+          completionTokens += tokens.completion
+          totalTokens += tokens.total
+          console.log(
+            `File processed. Tokens used: prompt=${tokens.prompt}, completion=${tokens.completion}, total=${tokens.total}`,
+          )
+        } catch (error) {
+          console.error("Failed to process uploaded file:", error)
+          errorMessage = `Error processing uploaded file: ${error.message}`
+        }
+      } else if (manualUrl) {
+        console.log(`Processing image from URL: ${manualUrl}`)
+        try {
+          const result = await getLabelFromImageUrl(manualUrl, prompt)
+          results.push(result)
+          processedCount++
+          const tokens = result.tokens || { prompt: 0, completion: 0, total: 0 }
+          promptTokens += tokens.prompt
+          completionTokens += tokens.completion
+          totalTokens += tokens.total
+          console.log(
+            `URL image processed. Tokens used: prompt=${tokens.prompt}, completion=${tokens.completion}, total=${tokens.total}`,
+          )
+        } catch (error) {
+          console.error("Failed to process image URL:", error)
+          errorMessage = `Error processing image URL: ${error.message}`
+        }
+      } else {
+        errorMessage = "No image file or URL provided for manual input"
+        console.warn(errorMessage)
+      }
+
+      totalFetched = manualFile || manualUrl ? 1 : 0
+      totalCount = totalFetched
     }
 
-    totalFetched = manualFile || manualUrl ? 1 : 0
-    totalCount = totalFetched
-  }
+    console.log(`Analysis complete. Total images processed: ${processedCount}/${totalFetched}`)
+    console.log(`Total tokens used: ${totalTokens} (Prompt: ${promptTokens}, Completion: ${completionTokens})`)
 
-  console.log(`Analysis complete. Total images processed: ${processedCount}/${totalFetched}`)
-  console.log(`Total tokens used: ${totalTokens} (Prompt: ${promptTokens}, Completion: ${completionTokens})`)
-
-  return {
-    results,
-    totalFetched,
-    processedCount,
-    promptTokens,
-    completionTokens,
-    totalTokens,
-    totalCount,
-    currentPage,
-    totalPages,
-    apiCall,
-    curlCommand,
-    apiResponse,
-    error: errorMessage,
+    // Ensure all data is serializable before returning
+    return makeSerializable({
+      results,
+      totalFetched,
+      processedCount,
+      promptTokens,
+      completionTokens,
+      totalTokens,
+      totalCount,
+      currentPage,
+      totalPages,
+      apiCall,
+      curlCommand,
+      apiResponse,
+      error: errorMessage,
+    })
+  } catch (error) {
+    console.error("Unhandled error in analyzeImages:", error)
+    return {
+      error: `An unexpected error occurred: ${error.message || "Unknown error"}`,
+      results: [],
+    }
   }
 }
 
