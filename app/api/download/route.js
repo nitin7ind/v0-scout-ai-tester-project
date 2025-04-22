@@ -1,16 +1,15 @@
-import { type NextRequest, NextResponse } from "next/server"
-import type { AnalysisResult } from "@/lib/types"
+import { NextResponse } from "next/server"
 
-export async function POST(request: NextRequest) {
+export async function POST(request) {
   const formData = await request.formData()
-  const dataStr = formData.get("data") as string
-  const format = formData.get("format") as string
+  const dataStr = formData.get("data")
+  const format = formData.get("format")
 
   if (!dataStr) {
     return NextResponse.json({ error: "No data provided" }, { status: 400 })
   }
 
-  const data = JSON.parse(dataStr) as AnalysisResult[]
+  const data = JSON.parse(dataStr)
 
   if (format === "json") {
     return NextResponse.json(data, {

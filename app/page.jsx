@@ -1,21 +1,18 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { Loader2, Moon, Sun } from "lucide-react"
-import { useTheme } from "next-themes"
-import { Button } from "@/components/ui/button"
+import { useTheme } from "@/components/theme-provider"
 import { analyzeImages } from "@/app/actions"
-import type { AnalysisResult, PaginationInfo } from "@/lib/types"
 import ResultsDisplay from "@/components/results-display"
 import DashboardForm from "@/components/dashboard-form"
 
 export default function Dashboard() {
-  const [results, setResults] = useState<AnalysisResult[]>([])
+  const [results, setResults] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [progress, setProgress] = useState(0)
-  const [error, setError] = useState<string | null>(null)
-  const [pagination, setPagination] = useState<PaginationInfo>({
+  const [error, setError] = useState(null)
+  const [apiCall, setApiCall] = useState("")
+  const [pagination, setPagination] = useState({
     currentPage: 1,
     totalPages: 1,
     totalCount: 0,
@@ -28,13 +25,13 @@ export default function Dashboard() {
     totalTokens: 0,
   })
   const { theme, setTheme } = useTheme()
-  const router = useRouter()
 
-  const handleAnalyze = async (formData: FormData) => {
+  const handleAnalyze = async (formData) => {
     setIsLoading(true)
     setProgress(0)
     setResults([])
     setError(null)
+    setApiCall("")
 
     try {
       console.log("Starting image analysis...")
@@ -58,6 +55,7 @@ export default function Dashboard() {
         totalPages: response.totalPages || 1,
         totalCount: response.totalCount || response.totalFetched,
       })
+      setApiCall(response.apiCall || "")
 
       if (response.results.length === 0) {
         setError("No images were processed. Please check your input parameters and try again.")
@@ -70,9 +68,9 @@ export default function Dashboard() {
     }
   }
 
-  const handlePageChange = (page: number) => {
+  const handlePageChange = (page) => {
     // Create a new FormData object with the current form values
-    const form = document.querySelector("form") as HTMLFormElement
+    const form = document.querySelector("form")
     if (!form) return
 
     const formData = new FormData(form)
@@ -81,7 +79,7 @@ export default function Dashboard() {
     handleAnalyze(formData)
   }
 
-  const handleDownload = async (format: "csv" | "json") => {
+  const handleDownload = async (format) => {
     try {
       console.log(`Downloading results as ${format}...`)
       const formData = new FormData()
@@ -97,27 +95,16 @@ export default function Dashboard() {
         throw new Error(`Download failed: ${response.status} ${response.statusText}`)
       }
 
-      if (format === "json") {
-        const blob = await response.blob()
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement("a")
-        a.href = url
-        a.download = "results.json"
-        document.body.appendChild(a)
-        a.click()
-        window.URL.revokeObjectURL(url)
-        document.body.removeChild(a)
-      } else if (format === "csv") {
-        const blob = await response.blob()
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement("a")
-        a.href = url
-        a.download = "results.csv"
-        document.body.appendChild(a)
-        a.click()
-        window.URL.revokeObjectURL(url)
-        document.body.removeChild(a)
-      }
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `results.${format}`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+
       console.log(`Download complete: ${format}`)
     } catch (error) {
       console.error("Error downloading results:", error)
@@ -133,9 +120,9 @@ export default function Dashboard() {
     <div className="container mx-auto p-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">ScoutAI Image Dashboard</h1>
-        <Button variant="outline" size="icon" onClick={toggleTheme}>
-          {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-        </Button>
+        <button className="p-2 rounded-md border dark:border-gray-600" onClick={toggleTheme}>
+          {theme === "dark" ? "🌞" : "🌙"}
+        </button>
       </div>
 
       <DashboardForm
@@ -148,8 +135,8 @@ export default function Dashboard() {
       {isLoading && (
         <div className="mt-6 text-center">
           <div className="flex items-center justify-center gap-2">
-            <Loader2 className="h-5 w-5 animate-spin" />
-            <p className="text-muted-foreground">
+            <div className="animate-spin h-5 w-5 border-2 border-blue-500 rounded-full border-t-transparent"></div>
+            <p className="text-gray-500 dark:text-gray-400">
               Processing images... <span>{progress}%</span>
             </p>
           </div>
@@ -172,6 +159,7 @@ export default function Dashboard() {
           onDownload={handleDownload}
           pagination={pagination}
           onPageChange={handlePageChange}
+          apiCall={apiCall}
         />
       )}
     </div>

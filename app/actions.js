@@ -1,47 +1,39 @@
 "use server"
 
 import { OpenAI } from "openai"
-import type { AnalysisResult } from "@/lib/types"
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 })
 
 // Updated fetchImages function to support pagination and task_id
-async function fetchImages(
-  env: string,
-  companyId: string,
-  locationId: string,
-  date: string,
-  taskId: string,
-  limit: number,
-  page: number,
-) {
+async function fetchImages(env, companyId, locationId, date, taskId, limit, page) {
   const baseUrl = env === "prod" ? "https://api-app-prod.wobot.ai" : "https://api-app-staging.wobot.ai"
 
   // Updated endpoint to match the provided URL structure
-  const endpoint = `${baseUrl}/app/v1/scoutai/images/get/50/1`
+  // The pagination format is /get/{limit}/{page}
+  const endpoint = `${baseUrl}/app/v1/scoutai/images/get/${limit}/${page}`
 
   // Build query parameters
   const params = new URLSearchParams({
     company: companyId,
     date: date,
-    limit: limit.toString(),
-    page: page.toString(),
   })
 
-  // Add task parameter if provided
-  if (taskId) {
-    params.append("task", taskId)
-  }
+  // Add task parameter (required)
+  params.append("task", taskId)
 
   // Add location parameter (even if empty)
   params.append("location", locationId || "")
 
-  try {
-    console.log(`Fetching images from ${endpoint} with params:`, Object.fromEntries(params.entries()))
+  // Construct the full URL for logging
+  const fullUrl = `${endpoint}?${params.toString()}`
 
-    const response = await fetch(`${endpoint}?${params.toString()}`, {
+  try {
+    console.log(`API Call: ${fullUrl}`)
+    console.log(`Headers: { secret: "wobotScoutAIImages" }`)
+
+    const response = await fetch(fullUrl, {
       headers: {
         secret: "wobotScoutAIImages",
       },
@@ -65,6 +57,7 @@ async function fetchImages(
       totalCount,
       currentPage: page,
       totalPages: Math.ceil(totalCount / limit),
+      apiCall: fullUrl, // Return the API call for display
     }
   } catch (error) {
     console.error("Error fetching images:", error)
@@ -73,19 +66,20 @@ async function fetchImages(
       totalCount: 0,
       currentPage: page,
       totalPages: 0,
+      apiCall: `${endpoint}?${params.toString()}`, // Return the API call even on error
     }
   }
 }
 
-// Update the analyzeImages function to handle pagination
-export async function analyzeImages(formData: FormData, progressCallback?: (current: number, total: number) => void) {
-  const prompt = formData.get("prompt") as string
-  const inputType = formData.get("input_type") as string
+// Update the analyzeImages function to handle pagination and return the API call
+export async function analyzeImages(formData, progressCallback) {
+  const prompt = formData.get("prompt")
+  const inputType = formData.get("input_type")
 
   console.log(`Starting image analysis with input type: ${inputType}`)
   console.log(`Prompt: ${prompt}`)
 
-  const results: AnalysisResult[] = []
+  const results = []
   let totalFetched = 0
   let processedCount = 0
   let promptTokens = 0
@@ -94,15 +88,16 @@ export async function analyzeImages(formData: FormData, progressCallback?: (curr
   let totalCount = 0
   let currentPage = 1
   let totalPages = 1
+  let apiCall = "" // Store the API call
 
   if (inputType === "scoutai") {
-    const env = formData.get("env") as string
-    const companyId = formData.get("company_id") as string
-    const locationId = formData.get("location_id") as string
-    const taskId = formData.get("task_id") as string
-    const date = formData.get("date") as string
-    const limit = Number.parseInt(formData.get("limit") as string) || 5
-    const page = Number.parseInt(formData.get("page") as string) || 1
+    const env = formData.get("env")
+    const companyId = formData.get("company_id")
+    const locationId = formData.get("location_id")
+    const taskId = formData.get("task_id") // Now required
+    const date = formData.get("date")
+    const limit = Number.parseInt(formData.get("limit")) || 5
+    const page = Number.parseInt(formData.get("page")) || 1
 
     console.log(
       `ScoutAI parameters: env=${env}, companyId=${companyId}, locationId=${locationId}, taskId=${taskId}, date=${date}, limit=${limit}, page=${page}`,
@@ -114,6 +109,7 @@ export async function analyzeImages(formData: FormData, progressCallback?: (curr
     totalCount = fetchResult.totalCount
     currentPage = fetchResult.currentPage
     totalPages = fetchResult.totalPages
+    apiCall = fetchResult.apiCall // Store the API call
 
     if (totalFetched === 0) {
       console.warn("No images were fetched from the ScoutAI API")
@@ -152,8 +148,8 @@ export async function analyzeImages(formData: FormData, progressCallback?: (curr
     }
   } else {
     // Handle manual image upload or URL
-    const manualFile = formData.get("manual_image") as File
-    const manualUrl = formData.get("manual_url") as string
+    const manualFile = formData.get("manual_image")
+    const manualUrl = formData.get("manual_url")
 
     if (manualFile && manualFile.size > 0) {
       console.log(`Processing uploaded file: ${manualFile.name}, size: ${manualFile.size} bytes`)
@@ -184,8 +180,6 @@ export async function analyzeImages(formData: FormData, progressCallback?: (curr
     processedCount = results.length
     totalFetched = processedCount
     totalCount = processedCount
-    currentPage = 1
-    totalPages = 1
 
     if (progressCallback) {
       progressCallback(1, 1)
@@ -205,10 +199,11 @@ export async function analyzeImages(formData: FormData, progressCallback?: (curr
     totalCount,
     currentPage,
     totalPages,
+    apiCall, // Return the API call
   }
 }
 
-async function getLabelFromImageUrl(imageUrl: string, prompt: string): Promise<AnalysisResult> {
+async function getLabelFromImageUrl(imageUrl, prompt) {
   try {
     const imgResponse = await fetch(imageUrl)
     if (!imgResponse.ok) {
@@ -231,7 +226,7 @@ async function getLabelFromImageUrl(imageUrl: string, prompt: string): Promise<A
   }
 }
 
-async function getLabelFromUploadedFile(file: File, prompt: string): Promise<AnalysisResult> {
+async function getLabelFromUploadedFile(file, prompt) {
   try {
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
@@ -249,7 +244,7 @@ async function getLabelFromUploadedFile(file: File, prompt: string): Promise<Ana
   }
 }
 
-async function callGpt(prompt: string, imageDataUri: string, imageSource: string): Promise<AnalysisResult> {
+async function callGpt(prompt, imageDataUri, imageSource) {
   try {
     const chatResponse = await openai.chat.completions.create({
       model: "gpt-4o-mini",
