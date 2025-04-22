@@ -12,6 +12,7 @@ export default function Dashboard() {
   const [progress, setProgress] = useState(0)
   const [error, setError] = useState(null)
   const [apiCall, setApiCall] = useState("")
+  const [curlCommand, setCurlCommand] = useState("")
   const [pagination, setPagination] = useState({
     currentPage: 1,
     totalPages: 1,
@@ -32,6 +33,7 @@ export default function Dashboard() {
     setResults([])
     setError(null)
     setApiCall("")
+    setCurlCommand("")
 
     try {
       console.log("Starting image analysis...")
@@ -56,6 +58,7 @@ export default function Dashboard() {
         totalCount: response.totalCount || response.totalFetched,
       })
       setApiCall(response.apiCall || "")
+      setCurlCommand(response.curlCommand || "")
 
       if (response.results.length === 0) {
         setError("No images were processed. Please check your input parameters and try again.")
@@ -160,6 +163,7 @@ export default function Dashboard() {
           pagination={pagination}
           onPageChange={handlePageChange}
           apiCall={apiCall}
+          curlCommand={curlCommand}
         />
       )}
     </div>

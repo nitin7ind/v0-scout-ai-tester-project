@@ -29,9 +29,13 @@ async function fetchImages(env, companyId, locationId, date, taskId, limit, page
   // Construct the full URL for logging
   const fullUrl = `${endpoint}?${params.toString()}`
 
+  // Create curl command for display
+  const curlCommand = `curl -X GET "${fullUrl}" -H "secret: wobotScoutAIImages"`
+
   try {
     console.log(`API Call: ${fullUrl}`)
     console.log(`Headers: { secret: "wobotScoutAIImages" }`)
+    console.log(`Curl command: ${curlCommand}`)
 
     const response = await fetch(fullUrl, {
       headers: {
@@ -46,6 +50,10 @@ async function fetchImages(env, companyId, locationId, date, taskId, limit, page
     }
 
     const data = await response.json()
+
+    // Log the full response
+    console.log("API Response:", JSON.stringify(data, null, 2))
+
     const images = data.data || []
     const totalCount = data.total || images.length
     console.log(
@@ -57,7 +65,8 @@ async function fetchImages(env, companyId, locationId, date, taskId, limit, page
       totalCount,
       currentPage: page,
       totalPages: Math.ceil(totalCount / limit),
-      apiCall: fullUrl, // Return the API call for display
+      apiCall: fullUrl,
+      curlCommand: curlCommand, // Return the curl command for display
     }
   } catch (error) {
     console.error("Error fetching images:", error)
@@ -66,7 +75,8 @@ async function fetchImages(env, companyId, locationId, date, taskId, limit, page
       totalCount: 0,
       currentPage: page,
       totalPages: 0,
-      apiCall: `${endpoint}?${params.toString()}`, // Return the API call even on error
+      apiCall: `${endpoint}?${params.toString()}`,
+      curlCommand: curlCommand,
     }
   }
 }
@@ -88,7 +98,8 @@ export async function analyzeImages(formData, progressCallback) {
   let totalCount = 0
   let currentPage = 1
   let totalPages = 1
-  let apiCall = "" // Store the API call
+  let apiCall = ""
+  let curlCommand = ""
 
   if (inputType === "scoutai") {
     const env = formData.get("env")
@@ -109,7 +120,8 @@ export async function analyzeImages(formData, progressCallback) {
     totalCount = fetchResult.totalCount
     currentPage = fetchResult.currentPage
     totalPages = fetchResult.totalPages
-    apiCall = fetchResult.apiCall // Store the API call
+    apiCall = fetchResult.apiCall
+    curlCommand = fetchResult.curlCommand
 
     if (totalFetched === 0) {
       console.warn("No images were fetched from the ScoutAI API")
@@ -199,7 +211,8 @@ export async function analyzeImages(formData, progressCallback) {
     totalCount,
     currentPage,
     totalPages,
-    apiCall, // Return the API call
+    apiCall,
+    curlCommand,
   }
 }
 

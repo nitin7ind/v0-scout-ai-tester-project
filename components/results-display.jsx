@@ -2,7 +2,7 @@
 
 import Image from "next/image"
 
-export default function ResultsDisplay({ results, stats, onDownload, pagination, onPageChange, apiCall }) {
+export default function ResultsDisplay({ results, stats, onDownload, pagination, onPageChange, apiCall, curlCommand }) {
   const totalCount = stats.totalCount || stats.totalFetched
 
   return (
@@ -18,6 +18,15 @@ export default function ResultsDisplay({ results, stats, onDownload, pagination,
               <p className="text-xs mt-1 text-gray-500 dark:text-gray-400">
                 Headers: {`{ secret: "wobotScoutAIImages" }`}
               </p>
+
+              {curlCommand && (
+                <>
+                  <h3 className="text-sm font-medium mt-3 mb-1">cURL Command:</h3>
+                  <div className="bg-gray-200 dark:bg-gray-800 p-2 rounded-md overflow-x-auto">
+                    <code className="text-xs break-all whitespace-pre-wrap">{curlCommand}</code>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
