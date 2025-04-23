@@ -12,17 +12,26 @@ export default function DashboardForm({
   curlCommand,
   activeMode = "scoutai",
   onModeChange,
+  onPromptChange,
+  selectedModel = "gpt",
+  onModelChange,
 }) {
   const [inputType, setInputType] = useState(activeMode)
   const [selectedTask, setSelectedTask] = useState("")
   const [customPrompt, setCustomPrompt] = useState("")
   const [prompt, setPrompt] = useState("")
+  const [modelType, setModelType] = useState(selectedModel)
   const currentDate = getCurrentDate()
 
   // Update inputType when activeMode changes
   useEffect(() => {
     setInputType(activeMode)
   }, [activeMode])
+
+  // Update modelType when selectedModel changes
+  useEffect(() => {
+    setModelType(selectedModel)
+  }, [selectedModel])
 
   // Set prompt based on selected task
   useEffect(() => {
@@ -37,6 +46,13 @@ export default function DashboardForm({
     }
   }, [selectedTask, customPrompt])
 
+  // Notify parent component when prompt changes
+  useEffect(() => {
+    if (onPromptChange && prompt) {
+      onPromptChange(prompt)
+    }
+  }, [prompt, onPromptChange])
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     const form = e.currentTarget
@@ -44,6 +60,9 @@ export default function DashboardForm({
 
     // Ensure the correct prompt is submitted
     formData.set("prompt", prompt)
+
+    // Add model type to form data
+    formData.set("model_type", modelType)
 
     await onSubmit(formData)
   }
@@ -53,6 +72,23 @@ export default function DashboardForm({
     setInputType(type)
     if (onModeChange) {
       onModeChange(type)
+    }
+  }
+
+  // Handle model type change
+  const handleModelChange = (type) => {
+    setModelType(type)
+    if (onModelChange) {
+      onModelChange(type)
+    }
+  }
+
+  // Handle prompt change in custom mode
+  const handleCustomPromptChange = (e) => {
+    const newPrompt = e.target.value
+    setCustomPrompt(newPrompt)
+    if (selectedTask === "custom") {
+      setPrompt(newPrompt)
     }
   }
 
@@ -92,11 +128,7 @@ export default function DashboardForm({
               id="prompt"
               name="prompt_display" // This is just for display, we'll use the state value when submitting
               value={selectedTask === "custom" ? customPrompt : prompt}
-              onChange={(e) => {
-                if (selectedTask === "custom") {
-                  setCustomPrompt(e.target.value)
-                }
-              }}
+              onChange={handleCustomPromptChange}
               placeholder="Enter prompt for image analysis"
               className={cn(
                 "w-full min-h-32 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600",
@@ -108,6 +140,36 @@ export default function DashboardForm({
             <input type="hidden" name="prompt" value={prompt} />
           </div>
         )}
+
+        <div className="space-y-2">
+          <label htmlFor="model_type" className="block text-sm font-medium">
+            Select AI Model
+          </label>
+          <div className="flex gap-4">
+            <div className="flex items-center space-x-2">
+              <input
+                type="radio"
+                id="model_gpt"
+                name="model_type"
+                value="gpt"
+                checked={modelType === "gpt"}
+                onChange={() => handleModelChange("gpt")}
+              />
+              <label htmlFor="model_gpt">Comet-4.1 (OpenAI)</label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="radio"
+                id="model_gemini"
+                name="model_type"
+                value="gemini"
+                checked={modelType === "gemini"}
+                onChange={() => handleModelChange("gemini")}
+              />
+              <label htmlFor="model_gemini">Glacier-2.5 (Google)</label>
+            </div>
+          </div>
+        </div>
 
         <div className="space-y-2">
           <span className="block text-sm font-medium">Select Image Input Method</span>

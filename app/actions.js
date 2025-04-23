@@ -1,10 +1,15 @@
 "use server"
 
 import { OpenAI } from "openai"
+import { GoogleGenerativeAI } from "@google/generative-ai"
 
+// Initialize OpenAI client
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 })
+
+// Initialize Google Generative AI client
+const googleAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || "")
 
 // Helper function to ensure objects are serializable
 function makeSerializable(obj) {
@@ -91,7 +96,7 @@ export async function fetchScoutAIImages(formData) {
     const totalCount = responseData.data?.total || 0
     const apiTotalPages = responseData.data?.totalPages || 1
 
-    // Convert API page (0-indexed) to dashboard page (1-indexed)
+    // Convert dashboard page (1-indexed) to API page (0-indexed)
     const currentApiPage = responseData.data?.page || apiPage
     const currentDashboardPage = currentApiPage + 1
 
@@ -160,8 +165,8 @@ export async function fetchScoutAIImages(formData) {
   }
 }
 
-// Step 2: Process images with GPT
-export async function processImagesWithGPT(images, prompt, selectedImageIndices = null) {
+// Step 2: Process images with selected AI model
+export async function processImagesWithGPT(images, prompt, selectedImageIndices = null, modelType = "gpt") {
   try {
     // If selectedImageIndices is provided and not empty, filter images to process only selected ones
     const imagesToProcess =
@@ -169,7 +174,9 @@ export async function processImagesWithGPT(images, prompt, selectedImageIndices 
         ? selectedImageIndices.map((index) => images[index])
         : images
 
-    console.log(`Starting GPT processing for ${imagesToProcess.length} images with prompt: ${prompt}`)
+    console.log(
+      `Starting ${modelType.toUpperCase()} processing for ${imagesToProcess.length} images with prompt: ${prompt}`,
+    )
     console.log(
       selectedImageIndices && selectedImageIndices.length > 0
         ? `Processing ${selectedImageIndices.length} selected images`
@@ -197,7 +204,13 @@ export async function processImagesWithGPT(images, prompt, selectedImageIndices 
       )
 
       try {
-        const result = await getLabelFromImageUrl(imageUrl, prompt)
+        // Call the appropriate AI model based on modelType
+        let result
+        if (modelType === "gemini") {
+          result = await getLabelFromImageUrlWithGemini(imageUrl, prompt)
+        } else {
+          result = await getLabelFromImageUrlWithGPT(imageUrl, prompt)
+        }
 
         // Update the image object with results
         const processedImage = {
@@ -205,6 +218,7 @@ export async function processImagesWithGPT(images, prompt, selectedImageIndices 
           processed: true,
           label: result.label,
           tokens: result.tokens,
+          modelUsed: modelType,
         }
 
         // Mark this image as processed in our map
@@ -219,7 +233,7 @@ export async function processImagesWithGPT(images, prompt, selectedImageIndices 
         totalTokens += tokens.total
 
         console.log(
-          `Image ${i + 1} processed. Tokens used: prompt=${tokens.prompt}, completion=${tokens.completion}, total=${tokens.total}`,
+          `Image ${i + 1} processed with ${modelType}. Tokens used: prompt=${tokens.prompt}, completion=${tokens.completion}, total=${tokens.total}`,
         )
       } catch (error) {
         console.error(`Failed to process image ${i + 1}:`, error)
@@ -230,6 +244,7 @@ export async function processImagesWithGPT(images, prompt, selectedImageIndices 
           processed: true,
           label: `Error: ${error.message || "Failed to process image"}`,
           error: true,
+          modelUsed: modelType,
         }
 
         // Mark this image as processed (with error) in our map
@@ -258,6 +273,7 @@ export async function processImagesWithGPT(images, prompt, selectedImageIndices 
       promptTokens,
       completionTokens,
       totalTokens,
+      modelUsed: modelType,
     })
   } catch (error) {
     console.error("Unhandled error in processImagesWithGPT:", error)
@@ -268,8 +284,8 @@ export async function processImagesWithGPT(images, prompt, selectedImageIndices 
   }
 }
 
-// Helper function to process a single image URL
-async function getLabelFromImageUrl(imageUrl, prompt) {
+// Helper function to process a single image URL with OpenAI GPT
+async function getLabelFromImageUrlWithGPT(imageUrl, prompt) {
   try {
     console.log(`Fetching image from URL: ${imageUrl}`)
     const imgResponse = await fetch(imageUrl)
@@ -288,24 +304,51 @@ async function getLabelFromImageUrl(imageUrl, prompt) {
 
     return await callGpt(prompt, imageDataUri, imageUrl)
   } catch (error) {
-    console.error("Error processing image URL:", error)
+    console.error("Error processing image URL with GPT:", error)
+    throw new Error(`Error fetching image: ${error.message || String(error)}`)
+  }
+}
+
+// Helper function to process a single image URL with Google Gemini
+async function getLabelFromImageUrlWithGemini(imageUrl, prompt) {
+  try {
+    console.log(`Fetching image from URL for Gemini: ${imageUrl}`)
+    const imgResponse = await fetch(imageUrl)
+
+    if (!imgResponse.ok) {
+      const errorText = await imgResponse.text()
+      console.error(`Failed to fetch image (${imgResponse.status}): ${errorText}`)
+      throw new Error(`Failed to fetch image: ${imgResponse.status}`)
+    }
+
+    const arrayBuffer = await imgResponse.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
+    const base64Image = buffer.toString("base64")
+    console.log("Image fetched and converted to base64 successfully for Gemini")
+
+    return await callGemini(prompt, base64Image, imageUrl)
+  } catch (error) {
+    console.error("Error processing image URL with Gemini:", error)
     throw new Error(`Error fetching image: ${error.message || String(error)}`)
   }
 }
 
 // Helper function to process an uploaded file
-async function getLabelFromUploadedFile(file, prompt) {
+async function getLabelFromUploadedFile(file, prompt, modelType = "gpt") {
   try {
-    console.log(`Processing uploaded file: ${file.name}, size: ${file.size} bytes`)
+    console.log(`Processing uploaded file with ${modelType}: ${file.name}, size: ${file.size} bytes`)
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
     const base64Image = buffer.toString("base64")
-    const imageDataUri = `data:image/jpeg;base64,${base64Image}`
-    console.log("File processed and converted to base64 successfully")
 
-    return await callGpt(prompt, imageDataUri, "Uploaded Image")
+    if (modelType === "gemini") {
+      return await callGemini(prompt, base64Image, "Uploaded Image")
+    } else {
+      const imageDataUri = `data:image/jpeg;base64,${base64Image}`
+      return await callGpt(prompt, imageDataUri, "Uploaded Image")
+    }
   } catch (error) {
-    console.error("Error processing uploaded file:", error)
+    console.error(`Error processing uploaded file with ${modelType}:`, error)
     throw new Error(`Error reading upload: ${error.message || String(error)}`)
   }
 }
@@ -316,7 +359,7 @@ async function callGpt(prompt, imageDataUri, imageSource) {
     console.log(`Calling GPT for image: ${imageSource.substring(0, 50)}...`)
     console.log(`Using prompt: ${prompt}`)
 
-    // Ensure we're using gpt-4o-mini model
+    // Ensure we're using gpt-4.1-mini model
     const chatResponse = await openai.chat.completions.create({
       model: "gpt-4.1-mini",
       messages: [
@@ -354,13 +397,76 @@ async function callGpt(prompt, imageDataUri, imageSource) {
   }
 }
 
+// Helper function to call Gemini
+async function callGemini(prompt, base64Image, imageSource) {
+  try {
+    console.log(`Calling Gemini for image: ${imageSource.substring(0, 50)}...`)
+    console.log(`Using prompt: ${prompt}`)
+
+    // Check if API key is available
+    if (!process.env.GOOGLE_API_KEY) {
+      throw new Error("Google API key is not configured")
+    }
+
+    // Get the Gemini model
+    const model = googleAI.getGenerativeModel({
+      model: "gemini-2.5-flash-preview-04-17",
+    })
+
+    // Prepare the content parts
+    const imagePart = {
+      inlineData: {
+        data: base64Image,
+        mimeType: "image/jpeg",
+      },
+    }
+
+    // Create the system prompt and user prompt
+    const systemPrompt =
+      "You are a visual analysis assistant examining images from a restaurant or food service environment."
+    const fullPrompt = `${systemPrompt}\n\n${prompt}`
+
+    // Generate content with the image
+    const result = await model.generateContent([fullPrompt, imagePart])
+
+    const response = await result.response
+    const text = response.text()
+
+    // Estimate token usage (Gemini doesn't provide token counts directly)
+    // This is a rough estimate based on characters
+    const promptChars = fullPrompt.length + 1000 // Add 1000 for image (very rough estimate)
+    const completionChars = text.length
+
+    // Estimate tokens (roughly 4 chars per token)
+    const promptTokens = Math.ceil(promptChars / 4)
+    const completionTokens = Math.ceil(completionChars / 4)
+    const totalTokens = promptTokens + completionTokens
+
+    console.log(`Gemini response received. Estimated tokens: ${totalTokens}`)
+
+    return {
+      image: imageSource,
+      label: text || "No response",
+      tokens: {
+        prompt: promptTokens,
+        completion: completionTokens,
+        total: totalTokens,
+      },
+    }
+  } catch (error) {
+    console.error("Error calling Gemini:", error)
+    throw new Error(`Error from Gemini: ${error.message || String(error)}`)
+  }
+}
+
 // Legacy function for manual image uploads (kept for backward compatibility)
 export async function analyzeImages(formData) {
   try {
     const prompt = formData.get("prompt")
     const inputType = formData.get("input_type")
+    const modelType = formData.get("model_type") || "gpt" // Default to GPT if not specified
 
-    console.log(`Starting image analysis with input type: ${inputType}`)
+    console.log(`Starting image analysis with input type: ${inputType}, model: ${modelType}`)
     console.log(`Prompt: ${prompt}`)
 
     if (inputType === "manual") {
@@ -376,9 +482,9 @@ export async function analyzeImages(formData) {
       const manualUrl = formData.get("manual_url")
 
       if (manualFile && manualFile.size > 0) {
-        console.log(`Processing uploaded file: ${manualFile.name}, size: ${manualFile.size} bytes`)
+        console.log(`Processing uploaded file with ${modelType}: ${manualFile.name}, size: ${manualFile.size} bytes`)
         try {
-          const result = await getLabelFromUploadedFile(manualFile, prompt)
+          const result = await getLabelFromUploadedFile(manualFile, prompt, modelType)
           results.push(result)
           processedCount++
           const tokens = result.tokens || { prompt: 0, completion: 0, total: 0 }
@@ -386,16 +492,21 @@ export async function analyzeImages(formData) {
           completionTokens += tokens.completion
           totalTokens += tokens.total
           console.log(
-            `File processed. Tokens used: prompt=${tokens.prompt}, completion=${tokens.completion}, total=${tokens.total}`,
+            `File processed with ${modelType}. Tokens used: prompt=${tokens.prompt}, completion=${tokens.completion}, total=${tokens.total}`,
           )
         } catch (error) {
           console.error("Failed to process uploaded file:", error)
           errorMessage = `Error processing uploaded file: ${error.message}`
         }
       } else if (manualUrl) {
-        console.log(`Processing image from URL: ${manualUrl}`)
+        console.log(`Processing image from URL with ${modelType}: ${manualUrl}`)
         try {
-          const result = await getLabelFromImageUrl(manualUrl, prompt)
+          let result
+          if (modelType === "gemini") {
+            result = await getLabelFromImageUrlWithGemini(manualUrl, prompt)
+          } else {
+            result = await getLabelFromImageUrlWithGPT(manualUrl, prompt)
+          }
           results.push(result)
           processedCount++
           const tokens = result.tokens || { prompt: 0, completion: 0, total: 0 }
@@ -403,7 +514,7 @@ export async function analyzeImages(formData) {
           completionTokens += tokens.completion
           totalTokens += tokens.total
           console.log(
-            `URL image processed. Tokens used: prompt=${tokens.prompt}, completion=${tokens.completion}, total=${tokens.total}`,
+            `URL image processed with ${modelType}. Tokens used: prompt=${tokens.prompt}, completion=${tokens.completion}, total=${tokens.total}`,
           )
         } catch (error) {
           console.error("Failed to process image URL:", error)
@@ -431,6 +542,7 @@ export async function analyzeImages(formData) {
         currentPage: 1,
         totalPages: 1,
         error: errorMessage,
+        modelUsed: modelType,
       })
     } else {
       // For ScoutAI, we now use the two-step process

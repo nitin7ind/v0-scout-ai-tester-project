@@ -19,6 +19,7 @@ export default function Dashboard() {
   const [apiResponse, setApiResponse] = useState(null)
   const [prompt, setPrompt] = useState("")
   const [activeMode, setActiveMode] = useState("scoutai") // Track the active mode
+  const [selectedModel, setSelectedModel] = useState("gpt") // Track the selected model
   const [pagination, setPagination] = useState({
     currentPage: 1,
     totalPages: 1,
@@ -30,13 +31,24 @@ export default function Dashboard() {
     promptTokens: 0,
     completionTokens: 0,
     totalTokens: 0,
+    modelUsed: "gpt",
   })
   const { theme, setTheme } = useTheme()
 
-  // Calculate pricing based on token usage
+  // Calculate pricing based on token usage and model
   const calculatePricing = () => {
-    const inputRate = 0.4 / 1000000 // $0.40 per 1M tokens
-    const outputRate = 1.6 / 1000000 // $1.60 per 1M tokens
+    // Different pricing for different models
+    let inputRate, outputRate
+
+    if (stats.modelUsed === "gemini") {
+      // Gemini pricing
+      inputRate = 0.15 / 1000000 // $0.15 per 1M tokens
+      outputRate = 0.6 / 1000000 // $0.60 per 1M tokens
+    } else {
+      // GPT pricing
+      inputRate = 0.4 / 1000000 // $0.40 per 1M tokens
+      outputRate = 1.6 / 1000000 // $1.60 per 1M tokens
+    }
 
     const inputCost = stats.promptTokens * inputRate
     const outputCost = stats.completionTokens * outputRate
@@ -46,6 +58,7 @@ export default function Dashboard() {
       inputCost: inputCost.toFixed(6),
       outputCost: outputCost.toFixed(6),
       totalCost: totalCost.toFixed(6),
+      modelUsed: stats.modelUsed,
     }
   }
 
@@ -84,6 +97,7 @@ export default function Dashboard() {
       promptTokens: 0,
       completionTokens: 0,
       totalTokens: 0,
+      modelUsed: selectedModel,
     })
     setActiveMode(mode)
   }
@@ -100,6 +114,7 @@ export default function Dashboard() {
     setApiResponse(null)
     setPrompt(formData.get("prompt") || "")
     setActiveMode("scoutai")
+    setSelectedModel(formData.get("model_type") || "gpt")
 
     try {
       console.log("Fetching images from ScoutAI API...")
@@ -129,6 +144,7 @@ export default function Dashboard() {
         promptTokens: 0,
         completionTokens: 0,
         totalTokens: 0,
+        modelUsed: selectedModel,
       })
 
       // Show error if no images were fetched
@@ -145,7 +161,7 @@ export default function Dashboard() {
     }
   }
 
-  // Step 2: Process fetched images with GPT
+  // Step 2: Process fetched images with selected AI model
   const handleProcessImages = async () => {
     if (images.length === 0) {
       setError("No images to process. Please fetch images first.")
@@ -160,8 +176,10 @@ export default function Dashboard() {
       // Only process selected images if any are selected, otherwise process all
       const indicesToProcess = selectedImages.length > 0 ? selectedImages : null
 
-      console.log(`Processing ${indicesToProcess ? selectedImages.length : images.length} images with Wobot AI...`)
-      const response = await processImagesWithGPT(images, prompt, indicesToProcess)
+      console.log(
+        `Processing ${indicesToProcess ? selectedImages.length : images.length} images with ${selectedModel.toUpperCase()}...`,
+      )
+      const response = await processImagesWithGPT(images, prompt, indicesToProcess, selectedModel)
       console.log("Processing complete:", response)
 
       // Check for errors
@@ -180,6 +198,7 @@ export default function Dashboard() {
         promptTokens: response.promptTokens || 0,
         completionTokens: response.completionTokens || 0,
         totalTokens: response.totalTokens || 0,
+        modelUsed: response.modelUsed || selectedModel,
       })
 
       // Show warning if some images failed processing
@@ -205,6 +224,7 @@ export default function Dashboard() {
     setError(null)
     setActiveMode("manual")
     setPrompt(formData.get("prompt") || "")
+    setSelectedModel(formData.get("model_type") || "gpt")
 
     try {
       console.log("Starting manual image analysis...")
@@ -226,6 +246,7 @@ export default function Dashboard() {
         promptTokens: response.promptTokens || 0,
         completionTokens: response.completionTokens || 0,
         totalTokens: response.totalTokens || 0,
+        modelUsed: response.modelUsed || selectedModel,
       })
     } catch (error) {
       console.error("Error analyzing images:", error)
@@ -299,13 +320,28 @@ export default function Dashboard() {
     setTheme(theme === "dark" ? "light" : "dark")
   }
 
+  // Handle prompt changes from the form
+  const handlePromptChange = (newPrompt) => {
+    setPrompt(newPrompt)
+  }
+
+  // Handle model changes from the form
+  const handleModelChange = (newModel) => {
+    setSelectedModel(newModel)
+  }
+
   // Get pricing information
   const pricing = calculatePricing()
+
+  // Get friendly model name for display
+  const getFriendlyModelName = (modelType) => {
+    return modelType === "gemini" ? "Glacier-2.5" : "Comet-4.1"
+  }
 
   return (
     <div className="container mx-auto p-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">ScoutAI Image Dashboard</h1>
+        <h1 className="text-3xl font-medium">ScoutAI Image Dashboard</h1>
         <button className="p-2 rounded-md border dark:border-gray-600" onClick={toggleTheme}>
           {theme === "dark" ? "🌞" : "🌙"}
         </button>
@@ -319,6 +355,9 @@ export default function Dashboard() {
         curlCommand={curlCommand}
         activeMode={activeMode}
         onModeChange={(mode) => resetState(mode)}
+        onPromptChange={handlePromptChange}
+        selectedModel={selectedModel}
+        onModelChange={handleModelChange}
       />
 
       {isLoading && (
@@ -336,7 +375,9 @@ export default function Dashboard() {
         <div className="mt-6 text-center">
           <div className="flex items-center justify-center gap-2">
             <div className="animate-spin h-5 w-5 border-2 border-blue-500 rounded-full border-t-transparent"></div>
-            <p className="text-gray-500 dark:text-gray-400">Processing images with Wobot AI...</p>
+            <p className="text-gray-500 dark:text-gray-400">
+              Processing images with {getFriendlyModelName(selectedModel)}...
+            </p>
           </div>
         </div>
       )}
@@ -385,7 +426,7 @@ export default function Dashboard() {
               <li>Check that the date is valid and has images available</li>
               <li>Try a different page number if available</li>
               <li>Check the console logs for more detailed error information</li>
-              <li>Ensure your OpenAI API key is valid and has sufficient credits</li>
+              <li>Ensure your API keys are valid and have sufficient credits</li>
             </ul>
           </div>
         </div>
@@ -399,6 +440,9 @@ export default function Dashboard() {
             <div>
               <p>
                 <strong>Images processed:</strong> {stats.processedCount} of {stats.totalFetched}
+              </p>
+              <p>
+                <strong>Model used:</strong> {getFriendlyModelName(stats.modelUsed)}
               </p>
             </div>
             <div>
@@ -415,11 +459,15 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm">
               <div>
                 <p>Input: ${pricing.inputCost}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">($0.40 / 1M tokens)</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  (${stats.modelUsed === "gemini" ? "0.15" : "0.40"} / 1M tokens)
+                </p>
               </div>
               <div>
                 <p>Output: ${pricing.outputCost}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">($1.60 / 1M tokens)</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  (${stats.modelUsed === "gemini" ? "0.60" : "1.60"} / 1M tokens)
+                </p>
               </div>
               <div>
                 <p className="font-medium">Total: ${pricing.totalCost}</p>
@@ -449,7 +497,7 @@ export default function Dashboard() {
         <div className="mt-6">
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center gap-2">
-              <h2 className="text-xl font-semibold">
+              <h2 className="text-xl font-medium">
                 Images ({images.length})
                 {pagination && pagination.totalCount > 0 && (
                   <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">
@@ -479,7 +527,7 @@ export default function Dashboard() {
             </div>
 
             <div className="flex items-center gap-2">
-              {/* Process with GPT button */}
+              {/* Process with selected model button */}
               {!isProcessing && (
                 <button
                   onClick={handleProcessImages}
@@ -487,8 +535,8 @@ export default function Dashboard() {
                   disabled={isProcessing || images.length === 0}
                 >
                   {selectedImages.length > 0
-                    ? `Process ${selectedImages.length} Selected Images`
-                    : `Process All Images`}
+                    ? `Process ${selectedImages.length} Selected with ${getFriendlyModelName(selectedModel)}`
+                    : `Process All with ${getFriendlyModelName(selectedModel)}`}
                 </button>
               )}
 
@@ -564,9 +612,16 @@ export default function Dashboard() {
                   </div>
                   <div className="p-4">
                     {displayItem.processed ? (
-                      <p className="text-sm">
-                        <strong>Label:</strong> {displayItem.label}
-                      </p>
+                      <>
+                        <p className="text-sm">
+                          <strong>Label:</strong> {displayItem.label}
+                        </p>
+                        {displayItem.modelUsed && (
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            Processed with: {getFriendlyModelName(displayItem.modelUsed)}
+                          </p>
+                        )}
+                      </>
                     ) : (
                       <p className="text-sm text-gray-500 dark:text-gray-400">Not processed yet</p>
                     )}
@@ -606,7 +661,7 @@ export default function Dashboard() {
       {/* Show manual results if any */}
       {activeMode === "manual" && results.length > 0 && !isLoading && (
         <div className="mt-6">
-          <h2 className="text-xl font-semibold mb-4">Manual Upload Results</h2>
+          <h2 className="text-xl font-medium mb-4">Manual Upload Results</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
             {results.map((item, index) => (
               <div
@@ -634,6 +689,11 @@ export default function Dashboard() {
                   <p className="text-sm">
                     <strong>Label:</strong> {item.label}
                   </p>
+                  {item.modelUsed && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Processed with: {getFriendlyModelName(item.modelUsed)}
+                    </p>
+                  )}
                 </div>
               </div>
             ))}
