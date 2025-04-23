@@ -3,17 +3,17 @@
     {
       "id": "table-clean",
       "name": "Table clean",
-      "prompt": "Analyze this image of restaurant tables and determine if they are clean or not. Describe any visible debris, stains, or mess. Rate the cleanliness on a scale of 1-10."
+      "prompt": "Analyze this image of restaurant tables and determine if they are clean or not. Describe any visible debris, stains, or mess. If food is present on the table with a person sitting, then its table occupied. Reply with Clean, Not Clean or Occupied. Give 1 liner explanation too."
     },
     {
       "id": "empty-bins",
       "name": "Empty bins",
-      "prompt": "Examine this image of waste bins and determine if they are empty or need to be emptied. Note how full they appear (empty, partially full, or overflowing) and if there's any waste visible outside the bins."
+      "prompt": "For compliance, you must detect if any bin is empty or running low. Identify all visible food bins and classify each as: Full (any food visibly present and the metal bottom of the bin is not clearly visible, even if the surface is uneven or a spoon is placed), Partial (only if the bin has large empty areas and the metal bottom is visible in at least one-third of the bin), or Empty (almost no food is visible and the bottom is mostly exposed). Spoons, prongs, shadows, and food gaps should be ignored when judging fullness. Be lenient: if food is covering most of the bin even with uneven surface, it is Full. Then apply this logic: If all bins are Full, return 'Full'. If even one bin is Empty, or if two or more bins are Partial, return 'Empty'. Output only one word: 'Full' or 'Empty'. No explanation or extra text."
     },
     {
       "id": "door-blocked",
       "name": "Door blocked",
-      "prompt": "Analyze this image and determine if the door is blocked or obstructed in any way. Identify any objects, equipment, or items that might be preventing the door from opening fully or creating a safety hazard."
+      "prompt": "Analyze this image and determine if the door is blocked or obstructed in any way. Identify any objects, equipment, or items that might be preventing the door from opening fully or creating a safety hazard. Give answer as Blocked or Not Blocked."
     }
   ]
 }

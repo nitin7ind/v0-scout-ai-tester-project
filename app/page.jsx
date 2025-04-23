@@ -33,6 +33,22 @@ export default function Dashboard() {
   })
   const { theme, setTheme } = useTheme()
 
+  // Calculate pricing based on token usage
+  const calculatePricing = () => {
+    const inputRate = 0.4 / 1000000 // $0.40 per 1M tokens
+    const outputRate = 1.6 / 1000000 // $1.60 per 1M tokens
+
+    const inputCost = stats.promptTokens * inputRate
+    const outputCost = stats.completionTokens * outputRate
+    const totalCost = inputCost + outputCost
+
+    return {
+      inputCost: inputCost.toFixed(6),
+      outputCost: outputCost.toFixed(6),
+      totalCost: totalCost.toFixed(6),
+    }
+  }
+
   // Toggle image selection
   const toggleImageSelection = (index) => {
     setSelectedImages((prev) => {
@@ -124,7 +140,7 @@ export default function Dashboard() {
       // Only process selected images if any are selected, otherwise process all
       const indicesToProcess = selectedImages.length > 0 ? selectedImages : null
 
-      console.log(`Processing ${indicesToProcess ? selectedImages.length : images.length} images with GPT...`)
+      console.log(`Processing ${indicesToProcess ? selectedImages.length : images.length} images with Wobot AI...`)
       const response = await processImagesWithGPT(images, prompt, indicesToProcess)
       console.log("Processing complete:", response)
 
@@ -135,7 +151,8 @@ export default function Dashboard() {
         return
       }
 
-      // Update state with response data
+      // Update state with response data - but keep the original images array
+      // This ensures we don't lose the selection state
       setResults(response.results || [])
       setStats({
         ...stats,
@@ -157,7 +174,6 @@ export default function Dashboard() {
     } finally {
       setIsProcessing(false)
       setProgress(100)
-      // We no longer clear the selectedImages state here
     }
   }
 
@@ -260,8 +276,8 @@ export default function Dashboard() {
     setTheme(theme === "dark" ? "light" : "dark")
   }
 
-  // Determine which data to display
-  const displayData = results.length > 0 ? results : images
+  // Get pricing information
+  const pricing = calculatePricing()
 
   return (
     <div className="container mx-auto p-6">
@@ -293,7 +309,7 @@ export default function Dashboard() {
         <div className="mt-6 text-center">
           <div className="flex items-center justify-center gap-2">
             <div className="animate-spin h-5 w-5 border-2 border-blue-500 rounded-full border-t-transparent"></div>
-            <p className="text-gray-500 dark:text-gray-400">Processing images with GPT...</p>
+            <p className="text-gray-500 dark:text-gray-400">Processing images with Wobot AI...</p>
           </div>
         </div>
       )}
@@ -363,30 +379,28 @@ export default function Dashboard() {
               </h2>
 
               {/* Select all checkbox */}
-              {!results.length && (
-                <div className="ml-4 flex items-center">
-                  <input
-                    type="checkbox"
-                    id="select-all"
-                    checked={selectedImages.length === images.length && images.length > 0}
-                    onChange={toggleAllImages}
-                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <label htmlFor="select-all" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                    Select All
-                  </label>
-                  {selectedImages.length > 0 && (
-                    <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
-                      ({selectedImages.length} selected)
-                    </span>
-                  )}
-                </div>
-              )}
+              <div className="ml-4 flex items-center">
+                <input
+                  type="checkbox"
+                  id="select-all"
+                  checked={selectedImages.length === images.length && images.length > 0}
+                  onChange={toggleAllImages}
+                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <label htmlFor="select-all" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                  Select All
+                </label>
+                {selectedImages.length > 0 && (
+                  <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                    ({selectedImages.length} selected)
+                  </span>
+                )}
+              </div>
             </div>
 
             <div className="flex items-center gap-2">
               {/* Process with GPT button */}
-              {!isProcessing && results.length === 0 && (
+              {!isProcessing && (
                 <button
                   onClick={handleProcessImages}
                   className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
@@ -424,7 +438,7 @@ export default function Dashboard() {
           </div>
 
           {/* Display processing stats if available */}
-          {results.length > 0 && (
+          {stats.processedCount > 0 && (
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6">
               <h3 className="text-lg font-medium mb-2">Processing Summary</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -440,6 +454,25 @@ export default function Dashboard() {
                   </p>
                 </div>
               </div>
+
+              {/* Pricing information */}
+              <div className="mt-2 p-3 bg-gray-50 dark:bg-gray-700 rounded-md">
+                <h4 className="text-sm font-medium mb-1">Estimated Cost</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm">
+                  <div>
+                    <p>Input: ${pricing.inputCost}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">($0.40 / 1M tokens)</p>
+                  </div>
+                  <div>
+                    <p>Output: ${pricing.outputCost}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">($1.60 / 1M tokens)</p>
+                  </div>
+                  <div>
+                    <p className="font-medium">Total: ${pricing.totalCost}</p>
+                  </div>
+                </div>
+              </div>
+
               <div className="mt-4">
                 <button
                   onClick={() => handleDownload("json")}
@@ -459,24 +492,26 @@ export default function Dashboard() {
 
           {/* Image grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-            {displayData.map((item, index) => (
-              <div
-                key={index}
-                className={`bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden ${
-                  item.error ? "border-red-300 dark:border-red-700 border-2" : ""
-                } ${!item.processed && selectedImages.includes(index) ? "ring-2 ring-blue-500" : ""}`}
-              >
-                <div
-                  className="relative w-full h-48 cursor-pointer"
-                  onClick={() => !results.length && toggleImageSelection(index)}
-                >
-                  {/* Serial number badge */}
-                  <div className="absolute top-2 left-2 bg-black bg-opacity-70 text-white px-2 py-1 rounded-md text-xs font-medium z-10">
-                    #{item.serialNumber}
-                  </div>
+            {images.map((item, index) => {
+              // Find the corresponding result if it exists
+              const result = results.find((r) => r.image === item.image) || {}
+              // Merge the result with the original item to preserve selection state
+              const displayItem = { ...item, ...result }
 
-                  {/* Selection checkbox - only show for unprocessed images */}
-                  {!results.length && (
+              return (
+                <div
+                  key={index}
+                  className={`bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden ${
+                    displayItem.error ? "border-red-300 dark:border-red-700 border-2" : ""
+                  } ${selectedImages.includes(index) ? "ring-2 ring-blue-500" : ""}`}
+                >
+                  <div className="relative w-full h-48 cursor-pointer" onClick={() => toggleImageSelection(index)}>
+                    {/* Serial number badge */}
+                    <div className="absolute top-2 left-2 bg-black bg-opacity-70 text-white px-2 py-1 rounded-md text-xs font-medium z-10">
+                      #{displayItem.serialNumber}
+                    </div>
+
+                    {/* Selection checkbox */}
                     <div className="absolute top-2 right-2 z-10" onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
@@ -485,41 +520,33 @@ export default function Dashboard() {
                         className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                       />
                     </div>
-                  )}
 
-                  {item.image && item.image.startsWith("http") ? (
-                    <Image
-                      src={item.image || "/placeholder.svg"}
-                      alt={`Image ${item.serialNumber}`}
-                      fill
-                      className="object-cover"
-                      unoptimized
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-700">
-                      <p className="text-sm text-gray-500 dark:text-gray-400">{item.image || "No image"}</p>
-                    </div>
-                  )}
-                </div>
-                <div className="p-4">
-                  {item.processed ? (
-                    <>
+                    {displayItem.image && displayItem.image.startsWith("http") ? (
+                      <Image
+                        src={displayItem.image || "/placeholder.svg"}
+                        alt={`Image ${displayItem.serialNumber}`}
+                        fill
+                        className="object-cover"
+                        unoptimized
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-700">
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{displayItem.image || "No image"}</p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-4">
+                    {displayItem.processed ? (
                       <p className="text-sm">
-                        <strong>Label:</strong> {item.label}
+                        <strong>Label:</strong> {displayItem.label}
                       </p>
-                      {item.tokens && (
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                          Tokens: {item.tokens.total} (Prompt: {item.tokens.prompt}, Completion:{" "}
-                          {item.tokens.completion})
-                        </p>
-                      )}
-                    </>
-                  ) : (
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Not yet processed</p>
-                  )}
+                    ) : (
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Not yet processed</p>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
 
           {/* Bottom pagination controls */}
