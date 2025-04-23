@@ -155,7 +155,7 @@ export default function DashboardForm({
                 checked={modelType === "gpt"}
                 onChange={() => handleModelChange("gpt")}
               />
-              <label htmlFor="model_gpt">Comet-4.1 (OpenAI)</label>
+              <label htmlFor="model_gpt">Comet-4.1</label>
             </div>
             <div className="flex items-center space-x-2">
               <input
@@ -166,7 +166,7 @@ export default function DashboardForm({
                 checked={modelType === "gemini"}
                 onChange={() => handleModelChange("gemini")}
               />
-              <label htmlFor="model_gemini">Glacier-2.5 (Google)</label>
+              <label htmlFor="model_gemini">Glacier-2.5</label>
             </div>
           </div>
         </div>
