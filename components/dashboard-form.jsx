@@ -218,6 +218,7 @@ export default function DashboardForm({ onSubmit, currentPage = 1, totalPages = 
                     required
                   />
                   <span className="text-sm text-gray-500 dark:text-gray-400">of {totalPages || 1}</span>
+                  <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">(API page: {currentPage - 1})</span>
                 </div>
               </div>
 

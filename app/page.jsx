@@ -10,6 +10,7 @@ import Image from "next/image"
 export default function Dashboard() {
   const [images, setImages] = useState([])
   const [results, setResults] = useState([])
+  const [selectedImages, setSelectedImages] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const [progress, setProgress] = useState(0)
@@ -32,11 +33,32 @@ export default function Dashboard() {
   })
   const { theme, setTheme } = useTheme()
 
+  // Toggle image selection
+  const toggleImageSelection = (index) => {
+    setSelectedImages((prev) => {
+      if (prev.includes(index)) {
+        return prev.filter((i) => i !== index)
+      } else {
+        return [...prev, index]
+      }
+    })
+  }
+
+  // Toggle all images selection
+  const toggleAllImages = () => {
+    if (selectedImages.length === images.length) {
+      setSelectedImages([])
+    } else {
+      setSelectedImages(images.map((_, index) => index))
+    }
+  }
+
   // Step 1: Fetch images from ScoutAI API
   const handleFetchImages = async (formData) => {
     setIsLoading(true)
     setImages([])
     setResults([])
+    setSelectedImages([])
     setError(null)
     setApiCall("")
     setCurlCommand("")
@@ -99,8 +121,11 @@ export default function Dashboard() {
     setError(null)
 
     try {
-      console.log(`Processing ${images.length} images with GPT...`)
-      const response = await processImagesWithGPT(images, prompt)
+      // Only process selected images if any are selected, otherwise process all
+      const indicesToProcess = selectedImages.length > 0 ? selectedImages : null
+
+      console.log(`Processing ${indicesToProcess ? selectedImages.length : images.length} images with GPT...`)
+      const response = await processImagesWithGPT(images, prompt, indicesToProcess)
       console.log("Processing complete:", response)
 
       // Check for errors
@@ -122,7 +147,9 @@ export default function Dashboard() {
 
       // Show warning if some images failed processing
       if (response.errorCount > 0) {
-        console.warn(`Warning: ${response.errorCount} of ${images.length} images failed to process.`)
+        console.warn(
+          `Warning: ${response.errorCount} of ${indicesToProcess ? selectedImages.length : images.length} images failed to process.`,
+        )
       }
     } catch (error) {
       console.error("Error processing images:", error)
@@ -324,48 +351,75 @@ export default function Dashboard() {
       {images.length > 0 && !isLoading && (
         <div className="mt-6">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">
-              Images ({images.length})
-              {pagination && pagination.totalCount > 0 && (
-                <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">
-                  Page {pagination.currentPage} of {pagination.totalPages} ({pagination.totalCount} total)
-                </span>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-semibold">
+                Images ({images.length})
+                {pagination && pagination.totalCount > 0 && (
+                  <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">
+                    Page {pagination.currentPage} of {pagination.totalPages} ({pagination.totalCount} total)
+                  </span>
+                )}
+              </h2>
+
+              {/* Select all checkbox */}
+              {!results.length && (
+                <div className="ml-4 flex items-center">
+                  <input
+                    type="checkbox"
+                    id="select-all"
+                    checked={selectedImages.length === images.length && images.length > 0}
+                    onChange={toggleAllImages}
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <label htmlFor="select-all" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                    Select All
+                  </label>
+                  {selectedImages.length > 0 && (
+                    <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                      ({selectedImages.length} selected)
+                    </span>
+                  )}
+                </div>
               )}
-            </h2>
+            </div>
 
-            {/* Process with GPT button */}
-            {!isProcessing && results.length === 0 && (
-              <button
-                onClick={handleProcessImages}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-                disabled={isProcessing || images.length === 0}
-              >
-                Process with GPT
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              {/* Process with GPT button */}
+              {!isProcessing && results.length === 0 && (
+                <button
+                  onClick={handleProcessImages}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                  disabled={isProcessing || images.length === 0}
+                >
+                  {selectedImages.length > 0
+                    ? `Process ${selectedImages.length} Selected Images`
+                    : `Process All Images`}
+                </button>
+              )}
 
-            {/* Pagination controls */}
-            {pagination && pagination.totalPages > 1 && (
-              <div className="flex items-center gap-2">
-                <button
-                  className="px-3 py-1 border rounded-md text-sm flex items-center disabled:opacity-50"
-                  onClick={() => handlePageChange(pagination.currentPage - 1)}
-                  disabled={pagination.currentPage <= 1 || isLoading || isProcessing}
-                >
-                  ← Previous
-                </button>
-                <span className="text-sm">
-                  Page {pagination.currentPage} of {pagination.totalPages}
-                </span>
-                <button
-                  className="px-3 py-1 border rounded-md text-sm flex items-center disabled:opacity-50"
-                  onClick={() => handlePageChange(pagination.currentPage + 1)}
-                  disabled={pagination.currentPage >= pagination.totalPages || isLoading || isProcessing}
-                >
-                  Next →
-                </button>
-              </div>
-            )}
+              {/* Pagination controls */}
+              {pagination && pagination.totalPages > 1 && (
+                <div className="flex items-center gap-2 ml-4">
+                  <button
+                    className="px-3 py-1 border rounded-md text-sm flex items-center disabled:opacity-50"
+                    onClick={() => handlePageChange(pagination.currentPage - 1)}
+                    disabled={pagination.currentPage <= 1 || isLoading || isProcessing}
+                  >
+                    ← Previous
+                  </button>
+                  <span className="text-sm">
+                    Page {pagination.currentPage} of {pagination.totalPages}
+                  </span>
+                  <button
+                    className="px-3 py-1 border rounded-md text-sm flex items-center disabled:opacity-50"
+                    onClick={() => handlePageChange(pagination.currentPage + 1)}
+                    disabled={pagination.currentPage >= pagination.totalPages || isLoading || isProcessing}
+                  >
+                    Next →
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Display processing stats if available */}
@@ -409,13 +463,30 @@ export default function Dashboard() {
                 key={index}
                 className={`bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden ${
                   item.error ? "border-red-300 dark:border-red-700 border-2" : ""
-                }`}
+                } ${!item.processed && selectedImages.includes(index) ? "ring-2 ring-blue-500" : ""}`}
               >
                 <div className="relative w-full h-48">
+                  {/* Serial number badge */}
+                  <div className="absolute top-2 left-2 bg-black bg-opacity-70 text-white px-2 py-1 rounded-md text-xs font-medium z-10">
+                    #{item.serialNumber}
+                  </div>
+
+                  {/* Selection checkbox - only show for unprocessed images */}
+                  {!results.length && (
+                    <div className="absolute top-2 right-2 z-10">
+                      <input
+                        type="checkbox"
+                        checked={selectedImages.includes(index)}
+                        onChange={() => toggleImageSelection(index)}
+                        className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                    </div>
+                  )}
+
                   {item.image && item.image.startsWith("http") ? (
                     <Image
                       src={item.image || "/placeholder.svg"}
-                      alt={`Image ${index + 1}`}
+                      alt={`Image ${item.serialNumber}`}
                       fill
                       className="object-cover"
                       unoptimized

@@ -20,7 +20,10 @@ export async function fetchScoutAIImages(formData) {
     const taskId = formData.get("task_id")
     const date = formData.get("date")
     const limit = Number.parseInt(formData.get("limit")) || 5
-    const page = Number.parseInt(formData.get("page")) || 1
+
+    // Convert dashboard page (1-indexed) to API page (0-indexed)
+    const dashboardPage = Number.parseInt(formData.get("page")) || 1
+    const apiPage = Math.max(0, dashboardPage - 1) // Ensure we don't send negative values
 
     // Validate required parameters
     if (!companyId) {
@@ -32,11 +35,11 @@ export async function fetchScoutAIImages(formData) {
     }
 
     console.log(
-      `ScoutAI parameters: env=${env}, companyId=${companyId}, locationId=${locationId}, taskId=${taskId}, date=${date}, limit=${limit}, page=${page}`,
+      `ScoutAI parameters: env=${env}, companyId=${companyId}, locationId=${locationId}, taskId=${taskId}, date=${date}, limit=${limit}, dashboardPage=${dashboardPage}, apiPage=${apiPage}`,
     )
 
     const baseUrl = env === "prod" ? "https://api-app-prod.wobot.ai" : "https://api-app-staging.wobot.ai"
-    const endpoint = `${baseUrl}/app/v1/scoutai/images/get/${limit}/${page}`
+    const endpoint = `${baseUrl}/app/v1/scoutai/images/get/${limit}/${apiPage}`
 
     // Build query parameters
     const params = new URLSearchParams({
@@ -86,10 +89,18 @@ export async function fetchScoutAIImages(formData) {
 
     // Extract pagination info from the nested structure
     const totalCount = responseData.data?.total || 0
-    const totalPages = responseData.data?.totalPages || 1
-    const currentPage = responseData.data?.page || page
+    const apiTotalPages = responseData.data?.totalPages || 1
 
-    console.log(`Images returned: ${images.length} of ${totalCount} total (page ${currentPage} of ${totalPages})`)
+    // Convert API page (0-indexed) to dashboard page (1-indexed)
+    const currentApiPage = responseData.data?.page || apiPage
+    const currentDashboardPage = currentApiPage + 1
+
+    // Total pages should also be adjusted if API is 0-indexed
+    const dashboardTotalPages = apiTotalPages
+
+    console.log(
+      `Images returned: ${images.length} of ${totalCount} total (API page ${currentApiPage}, dashboard page ${currentDashboardPage} of ${dashboardTotalPages})`,
+    )
 
     if (images.length === 0) {
       console.warn("⚠️ API returned zero images. Check if this is expected.")
@@ -105,29 +116,33 @@ export async function fetchScoutAIImages(formData) {
       status: responseData.status,
       message: responseData.message || "",
       data: {
-        page: responseData.data?.page || 1,
+        page: currentApiPage,
+        dashboardPage: currentDashboardPage,
         limit: responseData.data?.limit || limit,
-        totalPages: responseData.data?.totalPages || 1,
+        totalPages: apiTotalPages,
+        dashboardTotalPages: dashboardTotalPages,
         total: responseData.data?.total || 0,
         hasNextPage: responseData.data?.hasNextPage || false,
         data: images,
       },
     }
 
-    // Create image objects with status
-    const imageObjects = images.map((url) => ({
+    // Create image objects with status and serial number
+    const imageObjects = images.map((url, index) => ({
       image: url,
       processed: false,
       label: null,
       tokens: null,
       error: null,
+      serialNumber: currentApiPage * limit + index + 1, // Calculate global serial number
     }))
 
     return makeSerializable({
       images: imageObjects,
       totalCount,
-      currentPage,
-      totalPages,
+      currentPage: currentDashboardPage,
+      totalPages: dashboardTotalPages,
+      apiPage: currentApiPage,
       apiCall: fullUrl,
       curlCommand: curlCommand,
       apiResponse: serializedResponse,
@@ -146,9 +161,20 @@ export async function fetchScoutAIImages(formData) {
 }
 
 // Step 2: Process images with GPT
-export async function processImagesWithGPT(images, prompt) {
+export async function processImagesWithGPT(images, prompt, selectedImageIndices = null) {
   try {
-    console.log(`Starting GPT processing for ${images.length} images with prompt: ${prompt}`)
+    // If selectedImageIndices is provided and not empty, filter images to process only selected ones
+    const imagesToProcess =
+      selectedImageIndices && selectedImageIndices.length > 0
+        ? selectedImageIndices.map((index) => images[index])
+        : images
+
+    console.log(`Starting GPT processing for ${imagesToProcess.length} images with prompt: ${prompt}`)
+    console.log(
+      selectedImageIndices && selectedImageIndices.length > 0
+        ? `Processing ${selectedImageIndices.length} selected images`
+        : `Processing all ${images.length} images`,
+    )
 
     const results = []
     let processedCount = 0
@@ -157,23 +183,33 @@ export async function processImagesWithGPT(images, prompt) {
     let totalTokens = 0
     let errorCount = 0
 
-    // Process images sequentially
-    for (let i = 0; i < images.length; i++) {
-      const imageUrl = images[i].image
-      console.log(`Processing image ${i + 1}/${images.length}: ${imageUrl}`)
+    // Create a map to track which images have been processed
+    const processedMap = new Map()
+
+    // Process selected images sequentially
+    for (let i = 0; i < imagesToProcess.length; i++) {
+      const imageToProcess = imagesToProcess[i]
+      const imageUrl = imageToProcess.image
+      const originalIndex = images.findIndex((img) => img.image === imageUrl)
+
+      console.log(
+        `Processing image ${i + 1}/${imagesToProcess.length}: ${imageUrl} (Serial #${imageToProcess.serialNumber})`,
+      )
 
       try {
         const result = await getLabelFromImageUrl(imageUrl, prompt)
 
         // Update the image object with results
         const processedImage = {
-          ...images[i],
+          ...imageToProcess,
           processed: true,
           label: result.label,
           tokens: result.tokens,
         }
 
-        results.push(processedImage)
+        // Mark this image as processed in our map
+        processedMap.set(imageUrl, processedImage)
+
         processedCount++
 
         // Update tokens
@@ -190,22 +226,33 @@ export async function processImagesWithGPT(images, prompt) {
 
         // Add error information to the image object
         const errorImage = {
-          ...images[i],
+          ...imageToProcess,
           processed: true,
           label: `Error: ${error.message || "Failed to process image"}`,
           error: true,
         }
 
-        results.push(errorImage)
+        // Mark this image as processed (with error) in our map
+        processedMap.set(imageUrl, errorImage)
+
         errorCount++
       }
     }
+
+    // Create the final results array, preserving the original order
+    // For each image in the original array, either use the processed version or keep as is
+    const finalResults = images.map((img) => {
+      if (processedMap.has(img.image)) {
+        return processedMap.get(img.image)
+      }
+      return img
+    })
 
     console.log(`Processing complete. ${processedCount} images processed successfully, ${errorCount} errors.`)
     console.log(`Total tokens used: ${totalTokens} (Prompt: ${promptTokens}, Completion: ${completionTokens})`)
 
     return makeSerializable({
-      results,
+      results: finalResults,
       processedCount,
       errorCount,
       promptTokens,
