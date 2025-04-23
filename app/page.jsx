@@ -3,7 +3,6 @@
 import { useState } from "react"
 import { useTheme } from "@/components/theme-provider"
 import { fetchScoutAIImages, processImagesWithGPT, analyzeImages } from "@/app/actions"
-import ResultsDisplay from "@/components/results-display"
 import DashboardForm from "@/components/dashboard-form"
 import Image from "next/image"
 
@@ -19,6 +18,7 @@ export default function Dashboard() {
   const [curlCommand, setCurlCommand] = useState("")
   const [apiResponse, setApiResponse] = useState(null)
   const [prompt, setPrompt] = useState("")
+  const [activeMode, setActiveMode] = useState("scoutai") // Track the active mode
   const [pagination, setPagination] = useState({
     currentPage: 1,
     totalPages: 1,
@@ -69,6 +69,25 @@ export default function Dashboard() {
     }
   }
 
+  // Reset state when switching modes
+  const resetState = (mode) => {
+    setImages([])
+    setResults([])
+    setSelectedImages([])
+    setError(null)
+    setApiCall("")
+    setCurlCommand("")
+    setApiResponse(null)
+    setStats({
+      totalFetched: 0,
+      processedCount: 0,
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+    })
+    setActiveMode(mode)
+  }
+
   // Step 1: Fetch images from ScoutAI API
   const handleFetchImages = async (formData) => {
     setIsLoading(true)
@@ -80,6 +99,7 @@ export default function Dashboard() {
     setCurlCommand("")
     setApiResponse(null)
     setPrompt(formData.get("prompt") || "")
+    setActiveMode("scoutai")
 
     try {
       console.log("Fetching images from ScoutAI API...")
@@ -177,17 +197,14 @@ export default function Dashboard() {
     }
   }
 
-  // Handle manual image analysis (legacy path)
+  // Handle manual image analysis
   const handleManualAnalyze = async (formData) => {
-    if (formData.get("input_type") !== "manual") {
-      handleFetchImages(formData)
-      return
-    }
-
     setIsLoading(true)
     setProgress(0)
     setResults([])
     setError(null)
+    setActiveMode("manual")
+    setPrompt(formData.get("prompt") || "")
 
     try {
       console.log("Starting manual image analysis...")
@@ -232,6 +249,12 @@ export default function Dashboard() {
 
   const handleFormSubmit = (formData) => {
     const inputType = formData.get("input_type")
+
+    // If switching modes, reset state
+    if (inputType !== activeMode) {
+      resetState(inputType)
+    }
+
     if (inputType === "manual") {
       handleManualAnalyze(formData)
     } else {
@@ -294,13 +317,17 @@ export default function Dashboard() {
         totalPages={pagination.totalPages}
         onPageChange={handlePageChange}
         curlCommand={curlCommand}
+        activeMode={activeMode}
+        onModeChange={(mode) => resetState(mode)}
       />
 
       {isLoading && (
         <div className="mt-6 text-center">
           <div className="flex items-center justify-center gap-2">
             <div className="animate-spin h-5 w-5 border-2 border-blue-500 rounded-full border-t-transparent"></div>
-            <p className="text-gray-500 dark:text-gray-400">Fetching images...</p>
+            <p className="text-gray-500 dark:text-gray-400">
+              {activeMode === "scoutai" ? "Fetching images..." : "Processing image..."}
+            </p>
           </div>
         </div>
       )}
@@ -364,8 +391,61 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Display fetched images and Process button */}
-      {images.length > 0 && !isLoading && (
+      {/* Display processing stats if available */}
+      {stats.processedCount > 0 && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6 mt-6">
+          <h3 className="text-lg font-medium mb-2">Processing Summary</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <p>
+                <strong>Images processed:</strong> {stats.processedCount} of {stats.totalFetched}
+              </p>
+            </div>
+            <div>
+              <p>
+                <strong>Token usage:</strong> {stats.totalTokens.toLocaleString()} (Prompt:{" "}
+                {stats.promptTokens.toLocaleString()}, Completion: {stats.completionTokens.toLocaleString()})
+              </p>
+            </div>
+          </div>
+
+          {/* Pricing information */}
+          <div className="mt-2 p-3 bg-gray-50 dark:bg-gray-700 rounded-md">
+            <h4 className="text-sm font-medium mb-1">Estimated Cost</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm">
+              <div>
+                <p>Input: ${pricing.inputCost}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">($0.40 / 1M tokens)</p>
+              </div>
+              <div>
+                <p>Output: ${pricing.outputCost}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">($1.60 / 1M tokens)</p>
+              </div>
+              <div>
+                <p className="font-medium">Total: ${pricing.totalCost}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <button
+              onClick={() => handleDownload("json")}
+              className="px-3 py-1 bg-purple-600 text-white rounded-md hover:bg-purple-700 mr-2"
+            >
+              Download JSON
+            </button>
+            <button
+              onClick={() => handleDownload("csv")}
+              className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700"
+            >
+              Download CSV
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Display ScoutAI images and Process button */}
+      {activeMode === "scoutai" && images.length > 0 && !isLoading && (
         <div className="mt-6">
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center gap-2">
@@ -437,59 +517,6 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Display processing stats if available */}
-          {stats.processedCount > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6">
-              <h3 className="text-lg font-medium mb-2">Processing Summary</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <p>
-                    <strong>Images processed:</strong> {stats.processedCount} of {stats.totalFetched}
-                  </p>
-                </div>
-                <div>
-                  <p>
-                    <strong>Token usage:</strong> {stats.totalTokens.toLocaleString()} (Prompt:{" "}
-                    {stats.promptTokens.toLocaleString()}, Completion: {stats.completionTokens.toLocaleString()})
-                  </p>
-                </div>
-              </div>
-
-              {/* Pricing information */}
-              <div className="mt-2 p-3 bg-gray-50 dark:bg-gray-700 rounded-md">
-                <h4 className="text-sm font-medium mb-1">Estimated Cost</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm">
-                  <div>
-                    <p>Input: ${pricing.inputCost}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">($0.40 / 1M tokens)</p>
-                  </div>
-                  <div>
-                    <p>Output: ${pricing.outputCost}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">($1.60 / 1M tokens)</p>
-                  </div>
-                  <div>
-                    <p className="font-medium">Total: ${pricing.totalCost}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4">
-                <button
-                  onClick={() => handleDownload("json")}
-                  className="px-3 py-1 bg-purple-600 text-white rounded-md hover:bg-purple-700 mr-2"
-                >
-                  Download JSON
-                </button>
-                <button
-                  onClick={() => handleDownload("csv")}
-                  className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700"
-                >
-                  Download CSV
-                </button>
-              </div>
-            </div>
-          )}
-
           {/* Image grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
             {images.map((item, index) => {
@@ -541,7 +568,7 @@ export default function Dashboard() {
                         <strong>Label:</strong> {displayItem.label}
                       </p>
                     ) : (
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Not yet processed</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Not processed yet</p>
                     )}
                   </div>
                 </div>
@@ -577,8 +604,41 @@ export default function Dashboard() {
       )}
 
       {/* Show manual results if any */}
-      {results.length > 0 && images.length === 0 && (
-        <ResultsDisplay results={results} stats={stats} onDownload={handleDownload} />
+      {activeMode === "manual" && results.length > 0 && !isLoading && (
+        <div className="mt-6">
+          <h2 className="text-xl font-semibold mb-4">Manual Upload Results</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+            {results.map((item, index) => (
+              <div
+                key={index}
+                className={`bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden ${
+                  item.error ? "border-red-300 dark:border-red-700 border-2" : ""
+                }`}
+              >
+                <div className="relative w-full h-48">
+                  {item.image && item.image.startsWith("http") ? (
+                    <Image
+                      src={item.image || "/placeholder.svg"}
+                      alt={`Image ${index + 1}`}
+                      fill
+                      className="object-cover"
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-700">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{item.image || "Uploaded Image"}</p>
+                    </div>
+                  )}
+                </div>
+                <div className="p-4">
+                  <p className="text-sm">
+                    <strong>Label:</strong> {item.label}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   )

@@ -4,12 +4,25 @@ import { useState, useEffect } from "react"
 import { getCurrentDate, cn } from "@/lib/utils"
 import tasksData from "@/lib/tasks.json"
 
-export default function DashboardForm({ onSubmit, currentPage = 1, totalPages = 1, onPageChange, curlCommand }) {
-  const [inputType, setInputType] = useState("scoutai")
+export default function DashboardForm({
+  onSubmit,
+  currentPage = 1,
+  totalPages = 1,
+  onPageChange,
+  curlCommand,
+  activeMode = "scoutai",
+  onModeChange,
+}) {
+  const [inputType, setInputType] = useState(activeMode)
   const [selectedTask, setSelectedTask] = useState("")
   const [customPrompt, setCustomPrompt] = useState("")
   const [prompt, setPrompt] = useState("")
   const currentDate = getCurrentDate()
+
+  // Update inputType when activeMode changes
+  useEffect(() => {
+    setInputType(activeMode)
+  }, [activeMode])
 
   // Set prompt based on selected task
   useEffect(() => {
@@ -33,6 +46,14 @@ export default function DashboardForm({ onSubmit, currentPage = 1, totalPages = 
     formData.set("prompt", prompt)
 
     await onSubmit(formData)
+  }
+
+  // Handle input type change
+  const handleInputTypeChange = (type) => {
+    setInputType(type)
+    if (onModeChange) {
+      onModeChange(type)
+    }
   }
 
   return (
@@ -98,7 +119,7 @@ export default function DashboardForm({ onSubmit, currentPage = 1, totalPages = 
                 name="input_type"
                 value="scoutai"
                 checked={inputType === "scoutai"}
-                onChange={() => setInputType("scoutai")}
+                onChange={() => handleInputTypeChange("scoutai")}
               />
               <label htmlFor="scoutai">ScoutAI API</label>
             </div>
@@ -109,7 +130,7 @@ export default function DashboardForm({ onSubmit, currentPage = 1, totalPages = 
                 name="input_type"
                 value="manual"
                 checked={inputType === "manual"}
-                onChange={() => setInputType("manual")}
+                onChange={() => handleInputTypeChange("manual")}
               />
               <label htmlFor="manual">Manual Upload or URL</label>
             </div>
