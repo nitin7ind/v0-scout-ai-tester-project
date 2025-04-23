@@ -21,7 +21,7 @@ export default function Dashboard() {
   const [apiResponse, setApiResponse] = useState(null)
   const [prompt, setPrompt] = useState("")
   const [activeMode, setActiveMode] = useState("scoutai") // Track the active mode
-  const [selectedModel, setSelectedModel] = useState("gpt") // Track the selected model
+  const [selectedModel, setSelectedModel] = useState("gemini") // Default to gemini (Glacier)
   const [isDevMode, setIsDevMode] = useState(false) // Track if dev mode is enabled
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false) // Track if password modal is open
   const [pagination, setPagination] = useState({
@@ -409,7 +409,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-center gap-2">
             <div className="animate-spin h-5 w-5 border-2 border-blue-500 rounded-full border-t-transparent"></div>
             <p className="text-gray-500 dark:text-gray-400">
-              Processing images with {getFriendlyModelName(selectedModel)}...
+              Processing images{isDevMode ? ` with ${getFriendlyModelName(selectedModel)}` : ""}...
             </p>
           </div>
         </div>
@@ -568,7 +568,8 @@ export default function Dashboard() {
                   onClick={handleProcessImages}
                   className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
                 >
-                  Process {selectedImages.length} Selected with {getFriendlyModelName(selectedModel)}
+                  Process {selectedImages.length} Selected
+                  {isDevMode ? ` with ${getFriendlyModelName(selectedModel)}` : ""}
                 </button>
               )}
 

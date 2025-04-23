@@ -21,7 +21,7 @@ export default function DashboardForm({
   const [selectedTask, setSelectedTask] = useState("")
   const [customPrompt, setCustomPrompt] = useState("")
   const [prompt, setPrompt] = useState("")
-  const [modelType, setModelType] = useState(selectedModel)
+  const [modelType, setModelType] = useState(isDevMode ? selectedModel : "gemini")
   const currentDate = getCurrentDate()
 
   // Update inputType when activeMode changes
@@ -31,8 +31,12 @@ export default function DashboardForm({
 
   // Update modelType when selectedModel changes
   useEffect(() => {
-    setModelType(selectedModel)
-  }, [selectedModel])
+    if (isDevMode) {
+      setModelType(selectedModel)
+    } else {
+      setModelType("gemini") // Always use gemini (Glacier) in default mode
+    }
+  }, [selectedModel, isDevMode])
 
   // Set prompt based on selected task
   useEffect(() => {
@@ -143,35 +147,38 @@ export default function DashboardForm({
           </div>
         )}
 
-        <div className="space-y-2">
-          <label htmlFor="model_type" className="block text-sm font-medium">
-            Select AI Model
-          </label>
-          <div className="flex gap-4">
-            <div className="flex items-center space-x-2">
-              <input
-                type="radio"
-                id="model_gpt"
-                name="model_type"
-                value="gpt"
-                checked={modelType === "gpt"}
-                onChange={() => handleModelChange("gpt")}
-              />
-              <label htmlFor="model_gpt">Comet-4.1</label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <input
-                type="radio"
-                id="model_gemini"
-                name="model_type"
-                value="gemini"
-                checked={modelType === "gemini"}
-                onChange={() => handleModelChange("gemini")}
-              />
-              <label htmlFor="model_gemini">Glacier-2.5</label>
+        {/* Only show model selection in dev mode */}
+        {isDevMode && (
+          <div className="space-y-2">
+            <label htmlFor="model_type" className="block text-sm font-medium">
+              Select AI Model
+            </label>
+            <div className="flex gap-4">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="radio"
+                  id="model_gpt"
+                  name="model_type"
+                  value="gpt"
+                  checked={modelType === "gpt"}
+                  onChange={() => handleModelChange("gpt")}
+                />
+                <label htmlFor="model_gpt">Comet-4.1</label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="radio"
+                  id="model_gemini"
+                  name="model_type"
+                  value="gemini"
+                  checked={modelType === "gemini"}
+                  onChange={() => handleModelChange("gemini")}
+                />
+                <label htmlFor="model_gemini">Glacier-2.5</label>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         <div className="space-y-2">
           <span className="block text-sm font-medium">Select Image Input Method</span>
