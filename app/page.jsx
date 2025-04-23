@@ -532,11 +532,9 @@ export default function Dashboard() {
                 <button
                   onClick={handleProcessImages}
                   className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-                  disabled={isProcessing || images.length === 0}
+                  disabled={isProcessing || selectedImages.length === 0}
                 >
-                  {selectedImages.length > 0
-                    ? `Process ${selectedImages.length} Selected with ${getFriendlyModelName(selectedModel)}`
-                    : `Process All with ${getFriendlyModelName(selectedModel)}`}
+                  Process {selectedImages.length} Selected with {getFriendlyModelName(selectedModel)}
                 </button>
               )}
 
