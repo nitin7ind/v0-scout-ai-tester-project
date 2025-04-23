@@ -4,7 +4,9 @@ import { useState } from "react"
 import { useTheme } from "@/components/theme-provider"
 import { fetchScoutAIImages, processImagesWithGPT, analyzeImages } from "@/app/actions"
 import DashboardForm from "@/components/dashboard-form"
+import PasswordModal from "@/components/password-modal"
 import Image from "next/image"
+import { Code, Moon, Sun } from "lucide-react"
 
 export default function Dashboard() {
   const [images, setImages] = useState([])
@@ -20,6 +22,8 @@ export default function Dashboard() {
   const [prompt, setPrompt] = useState("")
   const [activeMode, setActiveMode] = useState("scoutai") // Track the active mode
   const [selectedModel, setSelectedModel] = useState("gpt") // Track the selected model
+  const [isDevMode, setIsDevMode] = useState(false) // Track if dev mode is enabled
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false) // Track if password modal is open
   const [pagination, setPagination] = useState({
     currentPage: 1,
     totalPages: 1,
@@ -320,6 +324,19 @@ export default function Dashboard() {
     setTheme(theme === "dark" ? "light" : "dark")
   }
 
+  // Toggle dev mode modal
+  const toggleDevModeModal = () => {
+    setIsPasswordModalOpen(true)
+  }
+
+  // Handle dev mode password submission
+  const handleDevModePassword = (success) => {
+    if (success) {
+      setIsDevMode(true)
+    }
+    setIsPasswordModalOpen(false)
+  }
+
   // Handle prompt changes from the form
   const handlePromptChange = (newPrompt) => {
     setPrompt(newPrompt)
@@ -345,9 +362,21 @@ export default function Dashboard() {
           <Image src="/images/wobot-logo.png" alt="Wobot.ai Logo" width={120} height={30} />
           <h1 className="text-2xl font-medium">ScoutAI Playground</h1>
         </div>
-        <button className="p-1 rounded-md border dark:border-gray-600" onClick={toggleTheme}>
-          {theme === "dark" ? "🌞" : "🌙"}
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Dev mode toggle */}
+          <button
+            className={`p-1 rounded-md border ${isDevMode ? "border-blue-500 text-blue-500" : "border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400"}`}
+            onClick={toggleDevModeModal}
+            title={isDevMode ? "Developer Mode Active" : "Enable Developer Mode"}
+          >
+            <Code size={18} />
+          </button>
+
+          {/* Theme toggle */}
+          <button className="p-1 rounded-md border dark:border-gray-600" onClick={toggleTheme}>
+            {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+        </div>
       </div>
 
       <DashboardForm
@@ -361,6 +390,7 @@ export default function Dashboard() {
         onPromptChange={handlePromptChange}
         selectedModel={selectedModel}
         onModelChange={handleModelChange}
+        isDevMode={isDevMode}
       />
 
       {isLoading && (
@@ -390,7 +420,7 @@ export default function Dashboard() {
           <h3 className="font-medium mb-2">Error</h3>
           <p>{error}</p>
 
-          {apiResponse && (
+          {isDevMode && apiResponse && (
             <div className="mt-4">
               <p className="font-medium">API Response:</p>
               <div className="mt-2 p-2 bg-gray-100 dark:bg-gray-800 rounded-md overflow-x-auto text-xs">
@@ -422,21 +452,23 @@ export default function Dashboard() {
             </div>
           )}
 
-          <div className="mt-4">
-            <h4 className="font-medium mb-1">Troubleshooting Tips:</h4>
-            <ul className="list-disc pl-5 text-sm">
-              <li>Verify your Company ID and Task ID are correct</li>
-              <li>Check that the date is valid and has images available</li>
-              <li>Try a different page number if available</li>
-              <li>Check the console logs for more detailed error information</li>
-              <li>Ensure your API keys are valid and have sufficient credits</li>
-            </ul>
-          </div>
+          {isDevMode && (
+            <div className="mt-4">
+              <h4 className="font-medium mb-1">Troubleshooting Tips:</h4>
+              <ul className="list-disc pl-5 text-sm">
+                <li>Verify your Company ID and Task ID are correct</li>
+                <li>Check that the date is valid and has images available</li>
+                <li>Try a different page number if available</li>
+                <li>Check the console logs for more detailed error information</li>
+                <li>Ensure your API keys are valid and have sufficient credits</li>
+              </ul>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Display processing stats if available */}
-      {stats.processedCount > 0 && (
+      {/* Display processing stats if available - only in dev mode */}
+      {stats.processedCount > 0 && isDevMode && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6 mt-6">
           <h3 className="text-lg font-medium mb-2">Processing Summary</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -616,7 +648,7 @@ export default function Dashboard() {
                         <p className="text-sm">
                           <strong>Label:</strong> {displayItem.label}
                         </p>
-                        {displayItem.modelUsed && (
+                        {displayItem.modelUsed && isDevMode && (
                           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                             Processed with: {getFriendlyModelName(displayItem.modelUsed)}
                           </p>
@@ -689,7 +721,7 @@ export default function Dashboard() {
                   <p className="text-sm">
                     <strong>Label:</strong> {item.label}
                   </p>
-                  {item.modelUsed && (
+                  {item.modelUsed && isDevMode && (
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                       Processed with: {getFriendlyModelName(item.modelUsed)}
                     </p>
@@ -700,6 +732,13 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* Password modal for dev mode */}
+      <PasswordModal
+        isOpen={isPasswordModalOpen}
+        onClose={() => setIsPasswordModalOpen(false)}
+        onSubmit={handleDevModePassword}
+      />
     </div>
   )
 }

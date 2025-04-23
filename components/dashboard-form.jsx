@@ -15,6 +15,7 @@ export default function DashboardForm({
   onPromptChange,
   selectedModel = "gpt",
   onModelChange,
+  isDevMode = false,
 }) {
   const [inputType, setInputType] = useState(activeMode)
   const [selectedTask, setSelectedTask] = useState("")
@@ -119,7 +120,8 @@ export default function DashboardForm({
           </select>
         </div>
 
-        {(selectedTask === "custom" || selectedTask) && (
+        {/* Only show prompt textarea if it's a custom prompt or if in dev mode */}
+        {(selectedTask === "custom" || (selectedTask && isDevMode)) && (
           <div className="space-y-2">
             <label htmlFor="prompt" className="block text-sm font-medium">
               {selectedTask === "custom" ? "Custom Prompt" : "Task Prompt"}
@@ -301,7 +303,9 @@ export default function DashboardForm({
                     required
                   />
                   <span className="text-sm text-gray-500 dark:text-gray-400">of {totalPages || 1}</span>
-                  <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">(API page: {currentPage - 1})</span>
+                  {isDevMode && (
+                    <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">(API page: {currentPage - 1})</span>
+                  )}
                 </div>
               </div>
 
@@ -367,8 +371,8 @@ export default function DashboardForm({
         </button>
       </form>
 
-      {/* Display curl command below the button */}
-      {curlCommand && (
+      {/* Display curl command below the button - only in dev mode */}
+      {curlCommand && isDevMode && (
         <div className="mt-4 p-3 bg-gray-100 dark:bg-gray-700 rounded-md overflow-x-auto">
           <h3 className="text-sm font-medium mb-1">ScoutAI API Call:</h3>
           <div className="bg-gray-200 dark:bg-gray-800 p-2 rounded-md overflow-x-auto">
