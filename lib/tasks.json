@@ -1,0 +1,19 @@
+{
+  "tasks": [
+    {
+      "id": "table-clean",
+      "name": "Table clean",
+      "prompt": "Analyze this image of restaurant tables and determine if they are clean or not. Describe any visible debris, stains, or mess. Rate the cleanliness on a scale of 1-10."
+    },
+    {
+      "id": "empty-bins",
+      "name": "Empty bins",
+      "prompt": "Examine this image of waste bins and determine if they are empty or need to be emptied. Note how full they appear (empty, partially full, or overflowing) and if there's any waste visible outside the bins."
+    },
+    {
+      "id": "door-blocked",
+      "name": "Door blocked",
+      "prompt": "Analyze this image and determine if the door is blocked or obstructed in any way. Identify any objects, equipment, or items that might be preventing the door from opening fully or creating a safety hazard."
+    }
+  ]
+}

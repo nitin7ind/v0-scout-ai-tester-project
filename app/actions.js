@@ -267,6 +267,8 @@ async function getLabelFromUploadedFile(file, prompt) {
 async function callGpt(prompt, imageDataUri, imageSource) {
   try {
     console.log(`Calling GPT for image: ${imageSource.substring(0, 50)}...`)
+    console.log(`Using prompt: ${prompt}`)
+
     // Ensure we're using gpt-4o-mini model
     const chatResponse = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -274,7 +276,7 @@ async function callGpt(prompt, imageDataUri, imageSource) {
         {
           role: "system",
           content:
-            "You are a visual analysis assistant examining overhead images of a food prep counter at a QSR (Quick Service Restaurant).",
+            "You are a visual analysis assistant examining images from a restaurant or food service environment.",
         },
         {
           role: "user",

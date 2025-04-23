@@ -1,16 +1,37 @@
 "use client"
 
-import { useState } from "react"
-import { getCurrentDate } from "@/lib/utils"
+import { useState, useEffect } from "react"
+import { getCurrentDate, cn } from "@/lib/utils"
+import tasksData from "@/lib/tasks.json"
 
 export default function DashboardForm({ onSubmit, currentPage = 1, totalPages = 1, onPageChange, curlCommand }) {
   const [inputType, setInputType] = useState("scoutai")
+  const [selectedTask, setSelectedTask] = useState("")
+  const [customPrompt, setCustomPrompt] = useState("")
+  const [prompt, setPrompt] = useState("")
   const currentDate = getCurrentDate()
+
+  // Set prompt based on selected task
+  useEffect(() => {
+    if (selectedTask === "custom") {
+      setPrompt(customPrompt)
+    } else {
+      const selectedTaskData = tasksData.tasks.find((task) => task.id === selectedTask)
+      if (selectedTaskData) {
+        setPrompt(selectedTaskData.prompt)
+        setCustomPrompt(selectedTaskData.prompt) // Also update custom prompt field for editing
+      }
+    }
+  }, [selectedTask, customPrompt])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     const form = e.currentTarget
     const formData = new FormData(form)
+
+    // Ensure the correct prompt is submitted
+    formData.set("prompt", prompt)
+
     await onSubmit(formData)
   }
 
@@ -18,17 +39,54 @@ export default function DashboardForm({ onSubmit, currentPage = 1, totalPages = 
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
-          <label htmlFor="prompt" className="block text-sm font-medium">
-            Prompt
+          <label htmlFor="task" className="block text-sm font-medium">
+            Select Task
           </label>
-          <textarea
-            id="prompt"
-            name="prompt"
-            placeholder="Enter prompt for image analysis"
-            className="w-full min-h-32 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+          <select
+            id="task"
+            name="task"
+            value={selectedTask}
+            onChange={(e) => setSelectedTask(e.target.value)}
+            className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
             required
-          />
+          >
+            <option value="" disabled>
+              Select a task...
+            </option>
+            {tasksData.tasks.map((task) => (
+              <option key={task.id} value={task.id}>
+                {task.name}
+              </option>
+            ))}
+            <option value="custom">Custom Prompt</option>
+          </select>
         </div>
+
+        {(selectedTask === "custom" || selectedTask) && (
+          <div className="space-y-2">
+            <label htmlFor="prompt" className="block text-sm font-medium">
+              {selectedTask === "custom" ? "Custom Prompt" : "Task Prompt"}
+            </label>
+            <textarea
+              id="prompt"
+              name="prompt_display" // This is just for display, we'll use the state value when submitting
+              value={selectedTask === "custom" ? customPrompt : prompt}
+              onChange={(e) => {
+                if (selectedTask === "custom") {
+                  setCustomPrompt(e.target.value)
+                }
+              }}
+              placeholder="Enter prompt for image analysis"
+              className={cn(
+                "w-full min-h-32 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600",
+                selectedTask !== "custom" && "bg-gray-50 dark:bg-gray-800",
+              )}
+              readOnly={selectedTask !== "custom"}
+              required
+            />
+            <input type="hidden" name="prompt" value={prompt} />
+          </div>
+        )}
 
         <div className="space-y-2">
           <span className="block text-sm font-medium">Select Image Input Method</span>
@@ -219,6 +277,7 @@ export default function DashboardForm({ onSubmit, currentPage = 1, totalPages = 
         <button
           type="submit"
           className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md"
+          disabled={!selectedTask}
         >
           {inputType === "scoutai" ? "Fetch Images" : "Analyze"}
         </button>
