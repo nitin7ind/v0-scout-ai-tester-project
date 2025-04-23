@@ -318,7 +318,7 @@ async function callGpt(prompt, imageDataUri, imageSource) {
 
     // Ensure we're using gpt-4o-mini model
     const chatResponse = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-4.1-mini",
       messages: [
         {
           role: "system",

@@ -7,6 +7,9 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata = {
   title: "ScoutAI Dashboard",
   description: "Analyze images with AI",
+  icons: {
+    icon: "/favicon_app.ico",
+  },
     generator: 'v0.dev'
 }
 

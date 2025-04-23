@@ -58,7 +58,7 @@ export default function Dashboard() {
     setIsLoading(true)
     setImages([])
     setResults([])
-    setSelectedImages([])
+    setSelectedImages([]) // Reset selected images when fetching new images
     setError(null)
     setApiCall("")
     setCurlCommand("")
@@ -157,6 +157,7 @@ export default function Dashboard() {
     } finally {
       setIsProcessing(false)
       setProgress(100)
+      // We no longer clear the selectedImages state here
     }
   }
 
@@ -465,7 +466,10 @@ export default function Dashboard() {
                   item.error ? "border-red-300 dark:border-red-700 border-2" : ""
                 } ${!item.processed && selectedImages.includes(index) ? "ring-2 ring-blue-500" : ""}`}
               >
-                <div className="relative w-full h-48">
+                <div
+                  className="relative w-full h-48 cursor-pointer"
+                  onClick={() => !results.length && toggleImageSelection(index)}
+                >
                   {/* Serial number badge */}
                   <div className="absolute top-2 left-2 bg-black bg-opacity-70 text-white px-2 py-1 rounded-md text-xs font-medium z-10">
                     #{item.serialNumber}
@@ -473,7 +477,7 @@ export default function Dashboard() {
 
                   {/* Selection checkbox - only show for unprocessed images */}
                   {!results.length && (
-                    <div className="absolute top-2 right-2 z-10">
+                    <div className="absolute top-2 right-2 z-10" onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
                         checked={selectedImages.includes(index)}
