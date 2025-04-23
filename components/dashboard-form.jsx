@@ -10,7 +10,7 @@ export default function DashboardForm({
   totalPages = 1,
   onPageChange,
   curlCommand,
-  activeMode = "scoutai",
+  activeMode = "manual", // Changed default to manual
   onModeChange,
   onPromptChange,
   selectedModel = "gpt",
@@ -183,17 +183,7 @@ export default function DashboardForm({
         <div className="space-y-2">
           <span className="block text-sm font-medium">Select Image Input Method</span>
           <div className="flex gap-4">
-            <div className="flex items-center space-x-2">
-              <input
-                type="radio"
-                id="scoutai"
-                name="input_type"
-                value="scoutai"
-                checked={inputType === "scoutai"}
-                onChange={() => handleInputTypeChange("scoutai")}
-              />
-              <label htmlFor="scoutai">ScoutAI API</label>
-            </div>
+            {/* Swapped the order of these radio buttons */}
             <div className="flex items-center space-x-2">
               <input
                 type="radio"
@@ -205,8 +195,48 @@ export default function DashboardForm({
               />
               <label htmlFor="manual">Manual Upload or URL</label>
             </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="radio"
+                id="scoutai"
+                name="input_type"
+                value="scoutai"
+                checked={inputType === "scoutai"}
+                onChange={() => handleInputTypeChange("scoutai")}
+              />
+              <label htmlFor="scoutai">ScoutAI API</label>
+            </div>
           </div>
         </div>
+
+        {inputType === "manual" && (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label htmlFor="manual_image" className="block text-sm font-medium">
+                Upload Image
+              </label>
+              <input
+                id="manual_image"
+                name="manual_image"
+                type="file"
+                accept="image/*"
+                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="manual_url" className="block text-sm font-medium">
+                Or paste image URL
+              </label>
+              <input
+                id="manual_url"
+                name="manual_url"
+                placeholder="https://example.com/image.jpg"
+                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+              />
+            </div>
+          </div>
+        )}
 
         {inputType === "scoutai" && (
           <div className="space-y-4">
@@ -336,35 +366,6 @@ export default function DashboardForm({
                   </button>
                 </div>
               )}
-            </div>
-          </div>
-        )}
-
-        {inputType === "manual" && (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label htmlFor="manual_image" className="block text-sm font-medium">
-                Upload Image
-              </label>
-              <input
-                id="manual_image"
-                name="manual_image"
-                type="file"
-                accept="image/*"
-                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label htmlFor="manual_url" className="block text-sm font-medium">
-                Or paste image URL
-              </label>
-              <input
-                id="manual_url"
-                name="manual_url"
-                placeholder="https://example.com/image.jpg"
-                className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-              />
             </div>
           </div>
         )}

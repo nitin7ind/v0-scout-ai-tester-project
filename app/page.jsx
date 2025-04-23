@@ -1,12 +1,14 @@
 "use client"
 
-import { useState } from "react"
+import React, { useState } from "react"
 import { useTheme } from "@/components/theme-provider"
 import { fetchScoutAIImages, processImagesWithGPT, analyzeImages } from "@/app/actions"
 import DashboardForm from "@/components/dashboard-form"
 import PasswordModal from "@/components/password-modal"
 import Image from "next/image"
 import { Code, Moon, Sun } from "lucide-react"
+// Update the import at the top of the file to include React
+// import React, { useState } from "react"
 
 export default function Dashboard() {
   const [images, setImages] = useState([])
@@ -20,7 +22,7 @@ export default function Dashboard() {
   const [curlCommand, setCurlCommand] = useState("")
   const [apiResponse, setApiResponse] = useState(null)
   const [prompt, setPrompt] = useState("")
-  const [activeMode, setActiveMode] = useState("scoutai") // Track the active mode
+  const [activeMode, setActiveMode] = useState("manual") // Changed default to manual
   const [selectedModel, setSelectedModel] = useState("gemini") // Default to gemini (Glacier)
   const [isDevMode, setIsDevMode] = useState(false) // Track if dev mode is enabled
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false) // Track if password modal is open
@@ -244,6 +246,10 @@ export default function Dashboard() {
 
       // Update state with response data
       setResults(response.results || [])
+      if (response.results && response.results.length > 0) {
+        // Create object URLs for any uploaded files
+        setResults(createObjectURLsForUploadedFiles(response.results))
+      }
       setStats({
         totalFetched: response.totalFetched || 0,
         processedCount: response.processedCount || 0,
@@ -259,6 +265,27 @@ export default function Dashboard() {
       setIsLoading(false)
       setProgress(100)
     }
+  }
+
+  // Create object URLs for uploaded files
+  const createObjectURLsForUploadedFiles = (results) => {
+    // Find the file input element
+    const fileInput = document.getElementById("manual_image")
+
+    if (fileInput && fileInput.files.length > 0 && results.length > 0) {
+      // If we have an uploaded file and results, create an object URL
+      const file = fileInput.files[0]
+
+      // Find the result that has isUploadedFile flag
+      const uploadedResult = results.find((r) => r.isUploadedFile)
+
+      if (uploadedResult) {
+        // Create and assign object URL
+        uploadedResult.objectURL = URL.createObjectURL(file)
+      }
+    }
+
+    return results
   }
 
   const handlePageChange = (page) => {
@@ -354,6 +381,18 @@ export default function Dashboard() {
   const getFriendlyModelName = (modelType) => {
     return modelType === "gemini" ? "Glacier-2.5" : "Comet-4.1"
   }
+
+  // Clean up object URLs when component unmounts or results change
+  React.useEffect(() => {
+    return () => {
+      // Clean up any object URLs to prevent memory leaks
+      results.forEach((result) => {
+        if (result.objectURL) {
+          URL.revokeObjectURL(result.objectURL)
+        }
+      })
+    }
+  }, [results])
 
   return (
     <div className="container mx-auto p-6">
@@ -704,7 +743,17 @@ export default function Dashboard() {
                 }`}
               >
                 <div className="relative w-full h-48">
-                  {item.image && item.image.startsWith("http") ? (
+                  {item.objectURL ? (
+                    // Display uploaded file using object URL
+                    <Image
+                      src={item.objectURL || "/placeholder.svg"}
+                      alt={`Uploaded Image ${index + 1}`}
+                      fill
+                      className="object-cover"
+                      unoptimized
+                    />
+                  ) : item.image && item.image.startsWith("http") ? (
+                    // Display image from URL
                     <Image
                       src={item.image || "/placeholder.svg"}
                       alt={`Image ${index + 1}`}
@@ -713,8 +762,11 @@ export default function Dashboard() {
                       unoptimized
                     />
                   ) : (
+                    // Fallback display
                     <div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-700">
-                      <p className="text-sm text-gray-500 dark:text-gray-400">{item.image || "Uploaded Image"}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {item.isUploadedFile ? `Uploaded: ${item.image}` : item.image || "Uploaded Image"}
+                      </p>
                     </div>
                   )}
                 </div>

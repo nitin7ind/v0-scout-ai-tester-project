@@ -485,6 +485,12 @@ export async function analyzeImages(formData) {
         console.log(`Processing uploaded file with ${modelType}: ${manualFile.name}, size: ${manualFile.size} bytes`)
         try {
           const result = await getLabelFromUploadedFile(manualFile, prompt, modelType)
+
+          // Add file name as image property for reference
+          result.image = manualFile.name
+          // Add a flag to indicate this is an uploaded file that needs special handling in the UI
+          result.isUploadedFile = true
+
           results.push(result)
           processedCount++
           const tokens = result.tokens || { prompt: 0, completion: 0, total: 0 }
