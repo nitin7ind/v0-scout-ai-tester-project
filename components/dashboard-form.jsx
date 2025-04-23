@@ -220,7 +220,7 @@ export default function DashboardForm({ onSubmit, currentPage = 1, totalPages = 
           type="submit"
           className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md"
         >
-          Analyze
+          {inputType === "scoutai" ? "Fetch Images" : "Analyze"}
         </button>
       </form>
 

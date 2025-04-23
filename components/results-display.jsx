@@ -17,10 +17,7 @@ export default function ResultsDisplay({ results, stats, onDownload, pagination,
             <div className="space-y-2">
               <h3 className="text-lg font-medium">Images</h3>
               <p>
-                <strong>Total images available:</strong> {totalCount}
-              </p>
-              <p>
-                <strong>Images on this page:</strong> {stats.processedCount} of {stats.totalFetched} fetched
+                <strong>Total images processed:</strong> {stats.processedCount} of {stats.totalFetched}
               </p>
               {pagination && (
                 <p>
@@ -139,15 +136,7 @@ export default function ResultsDisplay({ results, stats, onDownload, pagination,
         </div>
       </div>
 
-      <h2 className="text-xl font-semibold mt-8 mb-4">
-        Analysis Results ({results.length})
-        {pagination && totalCount > 0 && (
-          <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">
-            Showing {results.length > 0 ? (pagination.currentPage - 1) * stats.totalFetched + 1 : 0}-
-            {Math.min(pagination.currentPage * stats.totalFetched, totalCount)} of {totalCount}
-          </span>
-        )}
-      </h2>
+      <h2 className="text-xl font-semibold mt-8 mb-4">Analysis Results ({results.length})</h2>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
         {results.length > 0 ? (
@@ -159,17 +148,17 @@ export default function ResultsDisplay({ results, stats, onDownload, pagination,
               }`}
             >
               <div className="relative w-full h-48">
-                {item.image.startsWith("http") ? (
+                {item.image && item.image.startsWith("http") ? (
                   <Image
                     src={item.image || "/placeholder.svg"}
-                    alt="Analyzed image"
+                    alt={`Image ${index + 1}`}
                     fill
                     className="object-cover"
                     unoptimized
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-700">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">{item.image}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{item.image || "No image"}</p>
                   </div>
                 )}
               </div>
@@ -189,30 +178,6 @@ export default function ResultsDisplay({ results, stats, onDownload, pagination,
           <p className="col-span-3 text-center text-gray-500 dark:text-gray-400 py-8">No results to display</p>
         )}
       </div>
-
-      {pagination && pagination.totalPages > 1 && onPageChange && (
-        <div className="flex justify-center mt-6">
-          <div className="flex items-center gap-2">
-            <button
-              className="px-3 py-1 border rounded-md text-sm flex items-center disabled:opacity-50"
-              onClick={() => onPageChange(pagination.currentPage - 1)}
-              disabled={pagination.currentPage <= 1}
-            >
-              ← Previous
-            </button>
-            <span className="text-sm">
-              Page {pagination.currentPage} of {pagination.totalPages}
-            </span>
-            <button
-              className="px-3 py-1 border rounded-md text-sm flex items-center disabled:opacity-50"
-              onClick={() => onPageChange(pagination.currentPage + 1)}
-              disabled={pagination.currentPage >= pagination.totalPages}
-            >
-              Next →
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

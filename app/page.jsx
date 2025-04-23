@@ -2,18 +2,22 @@
 
 import { useState } from "react"
 import { useTheme } from "@/components/theme-provider"
-import { analyzeImages } from "@/app/actions"
+import { fetchScoutAIImages, processImagesWithGPT, analyzeImages } from "@/app/actions"
 import ResultsDisplay from "@/components/results-display"
 import DashboardForm from "@/components/dashboard-form"
+import Image from "next/image"
 
 export default function Dashboard() {
+  const [images, setImages] = useState([])
   const [results, setResults] = useState([])
   const [isLoading, setIsLoading] = useState(false)
+  const [isProcessing, setIsProcessing] = useState(false)
   const [progress, setProgress] = useState(0)
   const [error, setError] = useState(null)
   const [apiCall, setApiCall] = useState("")
   const [curlCommand, setCurlCommand] = useState("")
   const [apiResponse, setApiResponse] = useState(null)
+  const [prompt, setPrompt] = useState("")
   const [pagination, setPagination] = useState({
     currentPage: 1,
     totalPages: 1,
@@ -28,45 +32,130 @@ export default function Dashboard() {
   })
   const { theme, setTheme } = useTheme()
 
-  const handleAnalyze = async (formData) => {
+  // Step 1: Fetch images from ScoutAI API
+  const handleFetchImages = async (formData) => {
     setIsLoading(true)
-    setProgress(0)
+    setImages([])
     setResults([])
     setError(null)
     setApiCall("")
     setCurlCommand("")
     setApiResponse(null)
+    setPrompt(formData.get("prompt") || "")
 
     try {
-      console.log("Starting image analysis...")
+      console.log("Fetching images from ScoutAI API...")
+      const response = await fetchScoutAIImages(formData)
+      console.log("Fetch complete:", response)
 
-      // Create a local copy of the FormData to avoid serialization issues
-      const formDataObj = {}
-      for (const [key, value] of formData.entries()) {
-        formDataObj[key] = value
-      }
-      console.log("Form data:", formDataObj)
-
-      // Set up progress tracking
-      const progressCounter = 0
-      const updateProgress = (current, total) => {
-        const percent = Math.round((current / total) * 100)
-        setProgress(percent)
-        console.log(`Processing progress: ${percent}% (${current}/${total})`)
+      // Check for errors
+      if (response.error) {
+        setError(response.error)
+        console.error("Error returned from fetchScoutAIImages:", response.error)
+        return
       }
 
+      // Update state with response data
+      setImages(response.images || [])
+      setPagination({
+        currentPage: response.currentPage || 1,
+        totalPages: response.totalPages || 1,
+        totalCount: response.totalCount || 0,
+      })
+      setApiCall(response.apiCall || "")
+      setCurlCommand(response.curlCommand || "")
+      setApiResponse(response.apiResponse)
+      setStats({
+        totalFetched: response.images?.length || 0,
+        processedCount: 0,
+        promptTokens: 0,
+        completionTokens: 0,
+        totalTokens: 0,
+      })
+
+      // Show error if no images were fetched
+      if (!response.images || response.images.length === 0) {
+        setError(
+          "No images were found. The ScoutAI API returned zero images. Please check your input parameters (company ID, task ID, date) and try again.",
+        )
+      }
+    } catch (error) {
+      console.error("Error fetching images:", error)
+      setError(`Error fetching images: ${error instanceof Error ? error.message : String(error)}`)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Step 2: Process fetched images with GPT
+  const handleProcessImages = async () => {
+    if (images.length === 0) {
+      setError("No images to process. Please fetch images first.")
+      return
+    }
+
+    setIsProcessing(true)
+    setProgress(0)
+    setError(null)
+
+    try {
+      console.log(`Processing ${images.length} images with GPT...`)
+      const response = await processImagesWithGPT(images, prompt)
+      console.log("Processing complete:", response)
+
+      // Check for errors
+      if (response.error) {
+        setError(response.error)
+        console.error("Error returned from processImagesWithGPT:", response.error)
+        return
+      }
+
+      // Update state with response data
+      setResults(response.results || [])
+      setStats({
+        ...stats,
+        processedCount: response.processedCount || 0,
+        promptTokens: response.promptTokens || 0,
+        completionTokens: response.completionTokens || 0,
+        totalTokens: response.totalTokens || 0,
+      })
+
+      // Show warning if some images failed processing
+      if (response.errorCount > 0) {
+        console.warn(`Warning: ${response.errorCount} of ${images.length} images failed to process.`)
+      }
+    } catch (error) {
+      console.error("Error processing images:", error)
+      setError(`Error processing images: ${error instanceof Error ? error.message : String(error)}`)
+    } finally {
+      setIsProcessing(false)
+      setProgress(100)
+    }
+  }
+
+  // Handle manual image analysis (legacy path)
+  const handleManualAnalyze = async (formData) => {
+    if (formData.get("input_type") !== "manual") {
+      handleFetchImages(formData)
+      return
+    }
+
+    setIsLoading(true)
+    setProgress(0)
+    setResults([])
+    setError(null)
+
+    try {
+      console.log("Starting manual image analysis...")
       const response = await analyzeImages(formData)
       console.log("Analysis complete:", response)
 
-      // Check for errors first
+      // Check for errors
       if (response.error) {
         setError(response.error)
         console.error("Error returned from analyzeImages:", response.error)
         return
       }
-
-      // Update progress to 100% when done
-      setProgress(100)
 
       // Update state with response data
       setResults(response.results || [])
@@ -77,33 +166,12 @@ export default function Dashboard() {
         completionTokens: response.completionTokens || 0,
         totalTokens: response.totalTokens || 0,
       })
-      setPagination({
-        currentPage: response.currentPage || 1,
-        totalPages: response.totalPages || 1,
-        totalCount: response.totalCount || response.totalFetched || 0,
-      })
-      setApiCall(response.apiCall || "")
-      setCurlCommand(response.curlCommand || "")
-      setApiResponse(response.apiResponse)
-
-      // Show error if no images were processed
-      if (!response.error && (!response.results || response.results.length === 0)) {
-        setError(
-          "No images were processed. The ScoutAI API returned zero images. Please check your input parameters (company ID, task ID, date) and try again.",
-        )
-      }
-
-      // Show warning if some images failed processing
-      if (response.processedCount < response.totalFetched) {
-        console.warn(
-          `Warning: Only ${response.processedCount} of ${response.totalFetched} images were successfully processed.`,
-        )
-      }
     } catch (error) {
       console.error("Error analyzing images:", error)
       setError(`Error analyzing images: ${error instanceof Error ? error.message : String(error)}`)
     } finally {
       setIsLoading(false)
+      setProgress(100)
     }
   }
 
@@ -115,14 +183,23 @@ export default function Dashboard() {
     const formData = new FormData(form)
     formData.set("page", page.toString())
 
-    handleAnalyze(formData)
+    handleFetchImages(formData)
+  }
+
+  const handleFormSubmit = (formData) => {
+    const inputType = formData.get("input_type")
+    if (inputType === "manual") {
+      handleManualAnalyze(formData)
+    } else {
+      handleFetchImages(formData)
+    }
   }
 
   const handleDownload = async (format) => {
     try {
       console.log(`Downloading results as ${format}...`)
       const formData = new FormData()
-      formData.append("data", JSON.stringify(results))
+      formData.append("data", JSON.stringify(results.length > 0 ? results : images))
       formData.append("format", format)
 
       const response = await fetch("/api/download", {
@@ -155,6 +232,9 @@ export default function Dashboard() {
     setTheme(theme === "dark" ? "light" : "dark")
   }
 
+  // Determine which data to display
+  const displayData = results.length > 0 ? results : images
+
   return (
     <div className="container mx-auto p-6">
       <div className="flex justify-between items-center mb-6">
@@ -165,7 +245,7 @@ export default function Dashboard() {
       </div>
 
       <DashboardForm
-        onSubmit={handleAnalyze}
+        onSubmit={handleFormSubmit}
         currentPage={pagination.currentPage}
         totalPages={pagination.totalPages}
         onPageChange={handlePageChange}
@@ -176,9 +256,16 @@ export default function Dashboard() {
         <div className="mt-6 text-center">
           <div className="flex items-center justify-center gap-2">
             <div className="animate-spin h-5 w-5 border-2 border-blue-500 rounded-full border-t-transparent"></div>
-            <p className="text-gray-500 dark:text-gray-400">
-              Processing images... <span>{progress}%</span>
-            </p>
+            <p className="text-gray-500 dark:text-gray-400">Fetching images...</p>
+          </div>
+        </div>
+      )}
+
+      {isProcessing && (
+        <div className="mt-6 text-center">
+          <div className="flex items-center justify-center gap-2">
+            <div className="animate-spin h-5 w-5 border-2 border-blue-500 rounded-full border-t-transparent"></div>
+            <p className="text-gray-500 dark:text-gray-400">Processing images with GPT...</p>
           </div>
         </div>
       )}
@@ -233,19 +320,163 @@ export default function Dashboard() {
         </div>
       )}
 
-      {results.length > 0 && (
-        <ResultsDisplay
-          results={results}
-          stats={{
-            ...stats,
-            totalCount: pagination.totalCount,
-          }}
-          onDownload={handleDownload}
-          pagination={pagination}
-          onPageChange={handlePageChange}
-          apiCall={apiCall}
-          apiResponse={apiResponse}
-        />
+      {/* Display fetched images and Process button */}
+      {images.length > 0 && !isLoading && (
+        <div className="mt-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold">
+              Images ({images.length})
+              {pagination && pagination.totalCount > 0 && (
+                <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">
+                  Page {pagination.currentPage} of {pagination.totalPages} ({pagination.totalCount} total)
+                </span>
+              )}
+            </h2>
+
+            {/* Process with GPT button */}
+            {!isProcessing && results.length === 0 && (
+              <button
+                onClick={handleProcessImages}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                disabled={isProcessing || images.length === 0}
+              >
+                Process with GPT
+              </button>
+            )}
+
+            {/* Pagination controls */}
+            {pagination && pagination.totalPages > 1 && (
+              <div className="flex items-center gap-2">
+                <button
+                  className="px-3 py-1 border rounded-md text-sm flex items-center disabled:opacity-50"
+                  onClick={() => handlePageChange(pagination.currentPage - 1)}
+                  disabled={pagination.currentPage <= 1 || isLoading || isProcessing}
+                >
+                  ← Previous
+                </button>
+                <span className="text-sm">
+                  Page {pagination.currentPage} of {pagination.totalPages}
+                </span>
+                <button
+                  className="px-3 py-1 border rounded-md text-sm flex items-center disabled:opacity-50"
+                  onClick={() => handlePageChange(pagination.currentPage + 1)}
+                  disabled={pagination.currentPage >= pagination.totalPages || isLoading || isProcessing}
+                >
+                  Next →
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Display processing stats if available */}
+          {results.length > 0 && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6">
+              <h3 className="text-lg font-medium mb-2">Processing Summary</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <p>
+                    <strong>Images processed:</strong> {stats.processedCount} of {stats.totalFetched}
+                  </p>
+                </div>
+                <div>
+                  <p>
+                    <strong>Token usage:</strong> {stats.totalTokens.toLocaleString()} (Prompt:{" "}
+                    {stats.promptTokens.toLocaleString()}, Completion: {stats.completionTokens.toLocaleString()})
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4">
+                <button
+                  onClick={() => handleDownload("json")}
+                  className="px-3 py-1 bg-purple-600 text-white rounded-md hover:bg-purple-700 mr-2"
+                >
+                  Download JSON
+                </button>
+                <button
+                  onClick={() => handleDownload("csv")}
+                  className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700"
+                >
+                  Download CSV
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Image grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+            {displayData.map((item, index) => (
+              <div
+                key={index}
+                className={`bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden ${
+                  item.error ? "border-red-300 dark:border-red-700 border-2" : ""
+                }`}
+              >
+                <div className="relative w-full h-48">
+                  {item.image && item.image.startsWith("http") ? (
+                    <Image
+                      src={item.image || "/placeholder.svg"}
+                      alt={`Image ${index + 1}`}
+                      fill
+                      className="object-cover"
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-700">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{item.image || "No image"}</p>
+                    </div>
+                  )}
+                </div>
+                <div className="p-4">
+                  {item.processed ? (
+                    <>
+                      <p className="text-sm">
+                        <strong>Label:</strong> {item.label}
+                      </p>
+                      {item.tokens && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                          Tokens: {item.tokens.total} (Prompt: {item.tokens.prompt}, Completion:{" "}
+                          {item.tokens.completion})
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Not yet processed</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Bottom pagination controls */}
+          {pagination && pagination.totalPages > 1 && (
+            <div className="flex justify-center mt-6">
+              <div className="flex items-center gap-2">
+                <button
+                  className="px-3 py-1 border rounded-md text-sm flex items-center disabled:opacity-50"
+                  onClick={() => handlePageChange(pagination.currentPage - 1)}
+                  disabled={pagination.currentPage <= 1 || isLoading || isProcessing}
+                >
+                  ← Previous
+                </button>
+                <span className="text-sm">
+                  Page {pagination.currentPage} of {pagination.totalPages}
+                </span>
+                <button
+                  className="px-3 py-1 border rounded-md text-sm flex items-center disabled:opacity-50"
+                  onClick={() => handlePageChange(pagination.currentPage + 1)}
+                  disabled={pagination.currentPage >= pagination.totalPages || isLoading || isProcessing}
+                >
+                  Next →
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Show manual results if any */}
+      {results.length > 0 && images.length === 0 && (
+        <ResultsDisplay results={results} stats={stats} onDownload={handleDownload} />
       )}
     </div>
   )
