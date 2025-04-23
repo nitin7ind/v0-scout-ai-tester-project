@@ -341,7 +341,10 @@ export default function Dashboard() {
   return (
     <div className="container mx-auto p-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-medium">ScoutAI Image Dashboard</h1>
+        <div className="flex items-center gap-3">
+          <Image src="/images/wobot-logo.png" alt="Wobot.ai Logo" width={120} height={30} />
+          <h1 className="text-3xl font-medium">ScoutAI Image Dashboard</h1>
+        </div>
         <button className="p-2 rounded-md border dark:border-gray-600" onClick={toggleTheme}>
           {theme === "dark" ? "🌞" : "🌙"}
         </button>
@@ -527,12 +530,11 @@ export default function Dashboard() {
             </div>
 
             <div className="flex items-center gap-2">
-              {/* Process with selected model button */}
-              {!isProcessing && (
+              {/* Process with selected model button - only show when images are selected */}
+              {!isProcessing && selectedImages.length > 0 && (
                 <button
                   onClick={handleProcessImages}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-                  disabled={isProcessing || selectedImages.length === 0}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
                 >
                   Process {selectedImages.length} Selected with {getFriendlyModelName(selectedModel)}
                 </button>

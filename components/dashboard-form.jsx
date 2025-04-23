@@ -360,7 +360,7 @@ export default function DashboardForm({
 
         <button
           type="submit"
-          className="w-full py-2 px-4 border border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-200 font-medium rounded-md bg-transparent hover:bg-gray-100 dark:hover:bg-gray-800"
+          className="w-full py-2 px-4 border border-blue-600 dark:border-blue-500 text-blue-600 dark:text-blue-400 font-medium rounded-md bg-transparent hover:bg-blue-50 dark:hover:bg-blue-900/20"
           disabled={!selectedTask}
         >
           {inputType === "scoutai" ? "Fetch Images" : "Analyze"}
