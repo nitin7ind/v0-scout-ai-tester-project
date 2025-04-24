@@ -438,13 +438,21 @@ export default function Dashboard() {
     setError(null)
 
     try {
-      const response = await fetch(`${getEventsBaseUrl()}/task/list?location=${locationId}`, {
+      const url = `${getEventsBaseUrl()}/task/list?location=${locationId}`
+      console.log("Fetching tasks from URL:", url)
+      console.log("Using API key:", eventsApiKey.substring(0, 5) + "...")
+
+      const response = await fetch(url, {
         headers: {
           Authorization: `Bearer ${eventsApiKey}`,
         },
       })
 
+      console.log("Task API response status:", response.status)
+
       if (!response.ok) {
+        const errorText = await response.text()
+        console.error(`Failed to fetch tasks (${response.status}): ${errorText}`)
         throw new Error(`Failed to fetch tasks: ${response.status}`)
       }
 
@@ -499,8 +507,8 @@ export default function Dashboard() {
   }
 
   // Handle location change
-  const handleLocationChange = (e) => {
-    const locationId = e.target.value
+  const handleLocationChange = (locationId) => {
+    console.log("Location changed to:", locationId)
     setSelectedLocation(locationId)
     setSelectedTask("")
     setSelectedCamera("")
@@ -514,8 +522,8 @@ export default function Dashboard() {
   }
 
   // Handle task change
-  const handleTaskChange = (e) => {
-    const taskId = e.target.value
+  const handleTaskChange = (taskId) => {
+    console.log("Task changed to:", taskId)
     setSelectedTask(taskId)
     setSelectedCamera("")
 
@@ -527,8 +535,8 @@ export default function Dashboard() {
   }
 
   // Add a handleCameraChange function
-  const handleCameraChange = (e) => {
-    const cameraId = e.target.value
+  const handleCameraChange = (cameraId) => {
+    console.log("Camera changed to:", cameraId)
     setSelectedCamera(cameraId)
   }
 

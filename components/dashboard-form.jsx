@@ -479,7 +479,7 @@ export default function DashboardForm({
                       value={eventsLocation || ""}
                       onChange={(e) => {
                         if (onEventsLocationChange) {
-                          onEventsLocationChange(e)
+                          onEventsLocationChange(e.target.value)
                         }
                       }}
                       className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
@@ -504,7 +504,7 @@ export default function DashboardForm({
                       value={eventsTask || ""}
                       onChange={(e) => {
                         if (onEventsTaskChange) {
-                          onEventsTaskChange(e)
+                          onEventsTaskChange(e.target.value)
                         }
                       }}
                       className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
@@ -530,7 +530,7 @@ export default function DashboardForm({
                       value={eventsCamera || ""}
                       onChange={(e) => {
                         if (onEventsCameraChange) {
-                          onEventsCameraChange(e)
+                          onEventsCameraChange(e.target.value)
                         }
                       }}
                       className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
