@@ -24,6 +24,22 @@ export default function DashboardForm({
   selectedModel = "gpt",
   onModelChange,
   isDevMode = false,
+  // Events API specific props
+  isEventsKeyValid = false,
+  eventsApiKey = "",
+  eventsEnvironment = "production",
+  eventsLocations = [],
+  eventsTasks = [],
+  eventsCameras = [],
+  eventsLocation = "",
+  eventsTask = "",
+  eventsCamera = "",
+  eventsPage = 0,
+  onEventsApiValidate,
+  onEventsApiReset,
+  onEventsLocationChange,
+  onEventsTaskChange,
+  onEventsCameraChange,
 }) {
   const [inputType, setInputType] = useState(activeMode)
   const [selectedTask, setSelectedTask] = useState("")
@@ -390,134 +406,191 @@ export default function DashboardForm({
 
         {inputType === "events" && (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <label htmlFor="api_key" className="block text-sm font-medium">
-                  API Key
-                </label>
-                <input
-                  id="api_key"
-                  name="api_key"
-                  type="password"
-                  placeholder="Enter your Wobot API key"
-                  className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                  required
-                />
-              </div>
+            {/* API Key section - only show if not validated */}
+            {!isEventsKeyValid ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label htmlFor="api_key" className="block text-sm font-medium">
+                      API Key
+                    </label>
+                    <input
+                      id="api_key"
+                      name="api_key"
+                      type="password"
+                      placeholder="Enter your Wobot API key"
+                      className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                      required
+                    />
+                  </div>
 
-              <div className="space-y-2">
-                <label htmlFor="events_env" className="block text-sm font-medium">
-                  Environment
-                </label>
-                <select
-                  id="events_env"
-                  name="events_env"
-                  className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                  defaultValue="production"
+                  <div className="space-y-2">
+                    <label htmlFor="events_env" className="block text-sm font-medium">
+                      Environment
+                    </label>
+                    <select
+                      id="events_env"
+                      name="events_env"
+                      className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                      defaultValue="production"
+                    >
+                      <option value="production">Production</option>
+                      <option value="staging">Staging</option>
+                    </select>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const apiKey = document.getElementById("api_key").value
+                    const env = document.getElementById("events_env").value
+                    if (onEventsApiValidate) onEventsApiValidate(apiKey, env)
+                  }}
+                  className="w-full py-2 px-4 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 disabled:opacity-50"
                 >
-                  <option value="production">Production</option>
-                  <option value="staging">Staging</option>
-                </select>
+                  Validate API Key
+                </button>
               </div>
+            ) : (
+              /* Location, Task, Camera selection - show after API key is validated */
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-medium">Events API Query</h3>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onEventsApiReset) onEventsApiReset()
+                    }}
+                    className="text-sm text-blue-600 dark:text-blue-400"
+                  >
+                    Change API Key
+                  </button>
+                </div>
 
-              <div className="space-y-2">
-                <label htmlFor="events_limit" className="block text-sm font-medium">
-                  Results Per Page
-                </label>
-                <input
-                  id="events_limit"
-                  name="events_limit"
-                  type="number"
-                  min="1"
-                  max="50"
-                  defaultValue="10"
-                  className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                  required
-                />
-              </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label htmlFor="events_location" className="block text-sm font-medium">
+                      Location
+                    </label>
+                    <select
+                      id="events_location"
+                      name="events_location"
+                      value={eventsLocation || ""}
+                      onChange={(e) => {
+                        if (onEventsLocationChange) onEventsLocationChange(e.target.value)
+                      }}
+                      className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                    >
+                      <option value="">Select a location...</option>
+                      {eventsLocations &&
+                        eventsLocations.map((location) => (
+                          <option key={location._id} value={location._id}>
+                            {location.area} ({location.locationId})
+                          </option>
+                        ))}
+                    </select>
+                  </div>
 
-              <div className="space-y-2">
-                <label htmlFor="events_page" className="block text-sm font-medium">
-                  Page
-                </label>
-                <input
-                  id="events_page"
-                  name="events_page"
-                  type="number"
-                  min="0"
-                  defaultValue="0"
-                  className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                  required
-                />
-              </div>
+                  <div className="space-y-2">
+                    <label htmlFor="events_task" className="block text-sm font-medium">
+                      Task
+                    </label>
+                    <select
+                      id="events_task"
+                      name="events_task"
+                      value={eventsTask || ""}
+                      onChange={(e) => {
+                        if (onEventsTaskChange) onEventsTaskChange(e.target.value)
+                      }}
+                      className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                      disabled={!eventsLocation || !eventsTasks || eventsTasks.length === 0}
+                    >
+                      <option value="">Select a task...</option>
+                      {eventsTasks &&
+                        eventsTasks.map((task) => (
+                          <option key={task._id} value={task._id}>
+                            {task.task}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
 
-              <div className="space-y-2">
-                <label htmlFor="events_from_date" className="block text-sm font-medium">
-                  From Date
-                </label>
-                <input
-                  id="events_from_date"
-                  name="events_from_date"
-                  type="date"
-                  defaultValue={getDefaultFromDate()}
-                  className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                  required
-                />
-              </div>
+                  <div className="space-y-2">
+                    <label htmlFor="events_camera" className="block text-sm font-medium">
+                      Camera (Optional)
+                    </label>
+                    <select
+                      id="events_camera"
+                      name="events_camera"
+                      value={eventsCamera || ""}
+                      onChange={(e) => {
+                        if (onEventsCameraChange) onEventsCameraChange(e.target.value)
+                      }}
+                      className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                      disabled={!eventsTask || !eventsCameras || eventsCameras.length === 0}
+                    >
+                      <option value="">All Cameras</option>
+                      {eventsCameras &&
+                        eventsCameras.map((camera) => (
+                          <option key={camera._id} value={camera._id}>
+                            {camera.camera} ({camera.status})
+                          </option>
+                        ))}
+                    </select>
+                  </div>
 
-              <div className="space-y-2">
-                <label htmlFor="events_to_date" className="block text-sm font-medium">
-                  To Date
-                </label>
-                <input
-                  id="events_to_date"
-                  name="events_to_date"
-                  type="date"
-                  defaultValue={currentDate}
-                  className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                  required
-                />
-              </div>
-            </div>
+                  <div className="space-y-2">
+                    <label htmlFor="events_limit" className="block text-sm font-medium">
+                      Results Per Page
+                    </label>
+                    <input
+                      id="events_limit"
+                      name="events_limit"
+                      type="number"
+                      min="1"
+                      max="50"
+                      defaultValue="10"
+                      className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                      required
+                    />
+                  </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <label htmlFor="events_location" className="block text-sm font-medium">
-                  Location ID (Optional)
-                </label>
-                <input
-                  id="events_location"
-                  name="events_location"
-                  placeholder="Location ID"
-                  className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                />
-              </div>
+                  <div className="space-y-2">
+                    <label htmlFor="events_from_date" className="block text-sm font-medium">
+                      From Date
+                    </label>
+                    <input
+                      id="events_from_date"
+                      name="events_from_date"
+                      type="date"
+                      defaultValue={getDefaultFromDate()}
+                      className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                      required
+                    />
+                  </div>
 
-              <div className="space-y-2">
-                <label htmlFor="events_task" className="block text-sm font-medium">
-                  Task ID
-                </label>
-                <input
-                  id="events_task"
-                  name="events_task"
-                  placeholder="Task ID"
-                  className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                  required
-                />
-              </div>
+                  <div className="space-y-2">
+                    <label htmlFor="events_to_date" className="block text-sm font-medium">
+                      To Date
+                    </label>
+                    <input
+                      id="events_to_date"
+                      name="events_to_date"
+                      type="date"
+                      defaultValue={currentDate}
+                      className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                      required
+                    />
+                  </div>
+                </div>
 
-              <div className="space-y-2">
-                <label htmlFor="events_camera" className="block text-sm font-medium">
-                  Camera ID (Optional)
-                </label>
-                <input
-                  id="events_camera"
-                  name="events_camera"
-                  placeholder="Camera ID"
-                  className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                />
+                {/* Hidden fields to store API key and environment */}
+                <input type="hidden" name="api_key" value={eventsApiKey || ""} />
+                <input type="hidden" name="events_env" value={eventsEnvironment || "production"} />
+                <input type="hidden" name="events_page" value={eventsPage || 0} />
               </div>
-            </div>
+            )}
           </div>
         )}
 
