@@ -1,6 +1,16 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import {
+  GEMINI_INPUT_TOKENS,
+  GEMINI_OUTPUT_TOKENS,
+  GPT_INPUT_TOKENS,
+  GPT_OUTPUT_TOKENS,
+  GEMINI_INPUT_RATE,
+  GEMINI_OUTPUT_RATE,
+  GPT_INPUT_RATE,
+  GPT_OUTPUT_RATE,
+} from "@/lib/cost-utils"
 
 export default function CostCalculator({ isDevMode = false }) {
   // Default values
@@ -9,16 +19,6 @@ export default function CostCalculator({ isDevMode = false }) {
   const [frequencyValue, setFrequencyValue] = useState(30)
   const [frequencyUnit, setFrequencyUnit] = useState("minutes")
   const [results, setResults] = useState(null)
-
-  // Token assumptions
-  const GEMINI_TOKENS_PER_IMAGE = 380
-  const GPT_TOKENS_PER_IMAGE = 520
-
-  // Pricing rates (per million tokens)
-  const GEMINI_INPUT_RATE = 0.15 / 1000000 // $0.15 per 1M tokens
-  const GEMINI_OUTPUT_RATE = 0.6 / 1000000 // $0.60 per 1M tokens
-  const GPT_INPUT_RATE = 0.4 / 1000000 // $0.40 per 1M tokens
-  const GPT_OUTPUT_RATE = 1.6 / 1000000 // $1.60 per 1M tokens
 
   // Calculate results whenever inputs change
   useEffect(() => {
@@ -36,18 +36,17 @@ export default function CostCalculator({ isDevMode = false }) {
     const imagesPerMonth = imagesPerDay * daysPerMonth
 
     // Calculate Gemini costs
-    const geminiTokensPerMonth = imagesPerMonth * GEMINI_TOKENS_PER_IMAGE
-    // Assuming 1/4 of tokens are input and 3/4 are output for a typical vision model
-    const geminiInputTokens = geminiTokensPerMonth * 0.25
-    const geminiOutputTokens = geminiTokensPerMonth * 0.75
+    const geminiInputTokens = imagesPerMonth * GEMINI_INPUT_TOKENS
+    const geminiOutputTokens = imagesPerMonth * GEMINI_OUTPUT_TOKENS
+    const geminiTotalTokens = geminiInputTokens + geminiOutputTokens
     const geminiInputCost = geminiInputTokens * GEMINI_INPUT_RATE
     const geminiOutputCost = geminiOutputTokens * GEMINI_OUTPUT_RATE
     const geminiTotalCost = geminiInputCost + geminiOutputCost
 
     // Calculate GPT costs
-    const gptTokensPerMonth = imagesPerMonth * GPT_TOKENS_PER_IMAGE
-    const gptInputTokens = gptTokensPerMonth * 0.25
-    const gptOutputTokens = gptTokensPerMonth * 0.75
+    const gptInputTokens = imagesPerMonth * GPT_INPUT_TOKENS
+    const gptOutputTokens = imagesPerMonth * GPT_OUTPUT_TOKENS
+    const gptTotalTokens = gptInputTokens + gptOutputTokens
     const gptInputCost = gptInputTokens * GPT_INPUT_RATE
     const gptOutputCost = gptOutputTokens * GPT_OUTPUT_RATE
     const gptTotalCost = gptInputCost + gptOutputCost
@@ -56,17 +55,17 @@ export default function CostCalculator({ isDevMode = false }) {
       imagesPerDay,
       imagesPerMonth,
       gemini: {
-        tokensPerMonth: geminiTokensPerMonth,
         inputTokens: geminiInputTokens,
         outputTokens: geminiOutputTokens,
+        totalTokens: geminiTotalTokens,
         inputCost: geminiInputCost,
         outputCost: geminiOutputCost,
         totalCost: geminiTotalCost,
       },
       gpt: {
-        tokensPerMonth: gptTokensPerMonth,
         inputTokens: gptInputTokens,
         outputTokens: gptOutputTokens,
+        totalTokens: gptTotalTokens,
         inputCost: gptInputCost,
         outputCost: gptOutputCost,
         totalCost: gptTotalCost,
@@ -144,85 +143,93 @@ export default function CostCalculator({ isDevMode = false }) {
             <p>
               <strong>Images per month:</strong> {results.imagesPerMonth.toLocaleString()}
             </p>
-          </div>
-
-          <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-md">
-            <h3 className="text-lg font-medium mb-2">Glacier-2.5 (Gemini) Cost Estimate</h3>
-            <p>
-              <strong>Total tokens per month:</strong> {Math.round(results.gemini.tokensPerMonth).toLocaleString()}
-            </p>
-            <p>
-              <strong>Estimated monthly cost:</strong> ${results.gemini.totalCost.toFixed(2)}
+            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+              Based on processing one image every {frequencyValue} {frequencyUnit} for {hoursPerDay} hours per day,{" "}
+              {daysPerMonth} days per month.
             </p>
           </div>
 
+          {/* Only show cost sections in dev mode */}
           {isDevMode && (
-            <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-md">
-              <h3 className="text-lg font-medium mb-2">Comet-4.1 (GPT) Cost Estimate</h3>
-              <p>
-                <strong>Total tokens per month:</strong> {Math.round(results.gpt.tokensPerMonth).toLocaleString()}
-              </p>
-              <p>
-                <strong>Estimated monthly cost:</strong> ${results.gpt.totalCost.toFixed(2)}
-              </p>
-            </div>
-          )}
-
-          {isDevMode && (
-            <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-md">
-              <h3 className="text-lg font-medium mb-2">Detailed Breakdown</h3>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h4 className="font-medium mb-2">Glacier-2.5 (Gemini)</h4>
-                  <p>
-                    <strong>Input tokens:</strong> {Math.round(results.gemini.inputTokens).toLocaleString()}
-                  </p>
-                  <p>
-                    <strong>Output tokens:</strong> {Math.round(results.gemini.outputTokens).toLocaleString()}
-                  </p>
-                  <p>
-                    <strong>Input cost:</strong> ${results.gemini.inputCost.toFixed(4)}
-                  </p>
-                  <p>
-                    <strong>Output cost:</strong> ${results.gemini.outputCost.toFixed(4)}
-                  </p>
-                  <p>
-                    <strong>Total cost:</strong> ${results.gemini.totalCost.toFixed(4)}
-                  </p>
-                </div>
-
-                <div>
-                  <h4 className="font-medium mb-2">Comet-4.1 (GPT)</h4>
-                  <p>
-                    <strong>Input tokens:</strong> {Math.round(results.gpt.inputTokens).toLocaleString()}
-                  </p>
-                  <p>
-                    <strong>Output tokens:</strong> {Math.round(results.gpt.outputTokens).toLocaleString()}
-                  </p>
-                  <p>
-                    <strong>Input cost:</strong> ${results.gpt.inputCost.toFixed(4)}
-                  </p>
-                  <p>
-                    <strong>Output cost:</strong> ${results.gpt.outputCost.toFixed(4)}
-                  </p>
-                  <p>
-                    <strong>Total cost:</strong> ${results.gpt.totalCost.toFixed(4)}
-                  </p>
-                </div>
+            <>
+              <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-md">
+                <h3 className="text-lg font-medium mb-2">Glacier-2.5 (Gemini) Cost Estimate</h3>
+                <p>
+                  <strong>Total tokens per month:</strong> {Math.round(results.gemini.totalTokens).toLocaleString()}
+                </p>
+                <p>
+                  <strong>Estimated monthly cost:</strong> ${results.gemini.totalCost.toFixed(2)}
+                </p>
               </div>
 
-              <div className="mt-4 text-xs text-gray-500 dark:text-gray-400">
-                <p>* Assumptions:</p>
-                <ul className="list-disc pl-5 space-y-1">
-                  <li>Glacier-2.5 (Gemini): {GEMINI_TOKENS_PER_IMAGE} tokens per image</li>
-                  <li>Comet-4.1 (GPT): {GPT_TOKENS_PER_IMAGE} tokens per image</li>
-                  <li>Input/Output ratio: 25%/75%</li>
-                  <li>Glacier-2.5 pricing: $0.15/1M input tokens, $0.60/1M output tokens</li>
-                  <li>Comet-4.1 pricing: $0.40/1M input tokens, $1.60/1M output tokens</li>
-                </ul>
+              <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-md">
+                <h3 className="text-lg font-medium mb-2">Comet-4.1 (GPT) Cost Estimate</h3>
+                <p>
+                  <strong>Total tokens per month:</strong> {Math.round(results.gpt.totalTokens).toLocaleString()}
+                </p>
+                <p>
+                  <strong>Estimated monthly cost:</strong> ${results.gpt.totalCost.toFixed(2)}
+                </p>
               </div>
-            </div>
+
+              <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-md">
+                <h3 className="text-lg font-medium mb-2">Detailed Breakdown</h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <h4 className="font-medium mb-2">Glacier-2.5 (Gemini)</h4>
+                    <p>
+                      <strong>Input tokens:</strong> {Math.round(results.gemini.inputTokens).toLocaleString()}
+                    </p>
+                    <p>
+                      <strong>Output tokens:</strong> {Math.round(results.gemini.outputTokens).toLocaleString()}
+                    </p>
+                    <p>
+                      <strong>Input cost:</strong> ${results.gemini.inputCost.toFixed(4)}
+                    </p>
+                    <p>
+                      <strong>Output cost:</strong> ${results.gemini.outputCost.toFixed(4)}
+                    </p>
+                    <p>
+                      <strong>Total cost:</strong> ${results.gemini.totalCost.toFixed(4)}
+                    </p>
+                  </div>
+
+                  <div>
+                    <h4 className="font-medium mb-2">Comet-4.1 (GPT)</h4>
+                    <p>
+                      <strong>Input tokens:</strong> {Math.round(results.gpt.inputTokens).toLocaleString()}
+                    </p>
+                    <p>
+                      <strong>Output tokens:</strong> {Math.round(results.gpt.outputTokens).toLocaleString()}
+                    </p>
+                    <p>
+                      <strong>Input cost:</strong> ${results.gpt.inputCost.toFixed(4)}
+                    </p>
+                    <p>
+                      <strong>Output cost:</strong> ${results.gpt.outputCost.toFixed(4)}
+                    </p>
+                    <p>
+                      <strong>Total cost:</strong> ${results.gpt.totalCost.toFixed(4)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 text-xs text-gray-500 dark:text-gray-400">
+                  <p>* Token usage per image:</p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>
+                      Glacier-2.5 (Gemini): {GEMINI_INPUT_TOKENS} input tokens, {GEMINI_OUTPUT_TOKENS} output tokens
+                    </li>
+                    <li>
+                      Comet-4.1 (GPT): {GPT_INPUT_TOKENS} input tokens, {GPT_OUTPUT_TOKENS} output tokens
+                    </li>
+                    <li>Glacier-2.5 pricing: $0.15/1M input tokens, $0.60/1M output tokens</li>
+                    <li>Comet-4.1 pricing: $0.40/1M input tokens, $1.60/1M output tokens</li>
+                  </ul>
+                </div>
+              </div>
+            </>
           )}
         </div>
       )}
