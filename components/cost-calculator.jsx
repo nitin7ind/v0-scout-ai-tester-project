@@ -18,19 +18,23 @@ export default function CostCalculator({ isDevMode = false }) {
   const [daysPerMonth, setDaysPerMonth] = useState(30)
   const [frequencyValue, setFrequencyValue] = useState(30)
   const [frequencyUnit, setFrequencyUnit] = useState("minutes")
+  const [cameraCount, setCameraCount] = useState(1)
   const [results, setResults] = useState(null)
 
   // Calculate results whenever inputs change
   useEffect(() => {
     calculateCosts()
-  }, [hoursPerDay, daysPerMonth, frequencyValue, frequencyUnit])
+  }, [hoursPerDay, daysPerMonth, frequencyValue, frequencyUnit, cameraCount])
 
   const calculateCosts = () => {
     // Convert frequency to minutes
     const frequencyInMinutes = frequencyUnit === "hours" ? frequencyValue * 60 : frequencyValue
 
-    // Calculate images per day
-    const imagesPerDay = Math.floor((hoursPerDay * 60) / frequencyInMinutes)
+    // Calculate images per day per camera
+    const imagesPerDayPerCamera = Math.floor((hoursPerDay * 60) / frequencyInMinutes)
+
+    // Multiply by number of cameras
+    const imagesPerDay = imagesPerDayPerCamera * cameraCount
 
     // Calculate images per month
     const imagesPerMonth = imagesPerDay * daysPerMonth
@@ -52,8 +56,10 @@ export default function CostCalculator({ isDevMode = false }) {
     const gptTotalCost = gptInputCost + gptOutputCost
 
     setResults({
+      imagesPerDayPerCamera,
       imagesPerDay,
       imagesPerMonth,
+      cameraCount,
       gemini: {
         inputTokens: geminiInputTokens,
         outputTokens: geminiOutputTokens,
@@ -131,6 +137,24 @@ export default function CostCalculator({ isDevMode = false }) {
             </select>
           </div>
         </div>
+
+        <div className="space-y-2">
+          <label htmlFor="cameraCount" className="block text-sm font-medium">
+            Number of Cameras
+          </label>
+          <select
+            id="cameraCount"
+            value={cameraCount}
+            onChange={(e) => setCameraCount(Number.parseInt(e.target.value))}
+            className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+          >
+            {[1, 2, 3, 4, 5, 10, 15, 20, 25, 30, 40, 50, 75, 100].map((count) => (
+              <option key={count} value={count}>
+                {count} {count === 1 ? "Camera" : "Cameras"}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {results && (
@@ -138,14 +162,20 @@ export default function CostCalculator({ isDevMode = false }) {
           <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-md">
             <h3 className="text-lg font-medium mb-2">Estimated Usage</h3>
             <p>
-              <strong>Images per day:</strong> {results.imagesPerDay.toLocaleString()}
+              <strong>Cameras:</strong> {results.cameraCount}
             </p>
             <p>
-              <strong>Images per month:</strong> {results.imagesPerMonth.toLocaleString()}
+              <strong>Images per day per camera:</strong> {results.imagesPerDayPerCamera.toLocaleString()}
+            </p>
+            <p>
+              <strong>Total images per day:</strong> {results.imagesPerDay.toLocaleString()}
+            </p>
+            <p>
+              <strong>Total images per month:</strong> {results.imagesPerMonth.toLocaleString()}
             </p>
             <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
               Based on processing one image every {frequencyValue} {frequencyUnit} for {hoursPerDay} hours per day,{" "}
-              {daysPerMonth} days per month.
+              {daysPerMonth} days per month, across {cameraCount} {cameraCount === 1 ? "camera" : "cameras"}.
             </p>
           </div>
 
