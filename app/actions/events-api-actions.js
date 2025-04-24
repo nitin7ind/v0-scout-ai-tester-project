@@ -60,19 +60,23 @@ export async function fetchEventsAPI(formData) {
     // Create curl command for display on frontend
     const curlCommand = `curl -X GET "${fullUrl}" -H "Authorization: Bearer ${apiKey}"`
 
-    console.log("=== EVENTS API REQUEST ===")
+    console.log("=== EVENTS API SERVER ACTION REQUEST ===")
     console.log(`URL: ${fullUrl}`)
     console.log(`Headers: { Authorization: "Bearer ${apiKey.substring(0, 5)}..." }`)
-    console.log(`Curl: ${curlCommand.replace(apiKey, apiKey.substring(0, 5) + "...")}`)
+    console.log(`Full curl command for testing: curl -X GET "${fullUrl}" -H "Authorization: Bearer YOUR_API_KEY"`)
 
     const response = await fetch(fullUrl, {
       headers: {
         Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
       },
+      cache: "no-store",
     })
 
-    console.log("=== EVENTS API RESPONSE ===")
+    console.log("=== EVENTS API SERVER ACTION RESPONSE ===")
     console.log(`Status: ${response.status} ${response.statusText}`)
+    console.log("Response headers:", Object.fromEntries([...response.headers.entries()]))
 
     if (!response.ok) {
       const errorText = await response.text()
@@ -138,7 +142,7 @@ export async function fetchEventsAPI(formData) {
       apiResponse: serializedResponse,
     })
   } catch (error) {
-    console.error("=== EVENTS API ERROR ===")
+    console.error("=== EVENTS API SERVER ACTION ERROR ===")
     console.error(error)
     return {
       error: error.message || "Unknown error fetching events",

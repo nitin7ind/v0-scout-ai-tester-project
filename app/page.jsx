@@ -401,20 +401,40 @@ export default function Dashboard() {
       const baseUrl =
         environment === "production" ? "https://api.wobot.ai/client/v2" : "https://api-staging.wobot.ai/client/v2"
 
-      // Try to fetch locations as a validation test
-      const response = await fetch(`${baseUrl}/locations/get`, {
+      const url = `${baseUrl}/locations/get`
+
+      // Create and log the curl command for debugging
+      const curlCommand = `curl -X GET "${url}" -H "Authorization: Bearer ${apiKey.substring(0, 5)}..."`
+      console.log("=== LOCATIONS API REQUEST ===")
+      console.log(`URL: ${url}`)
+      console.log(`Headers: { Authorization: "Bearer ${apiKey.substring(0, 5)}..." }`)
+      console.log(
+        `Full curl command for testing: ${curlCommand.replace(apiKey.substring(0, 5) + "...", "${YOUR_API_KEY}")}`,
+      )
+
+      const response = await fetch(url, {
         headers: {
           Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
         },
+        cache: "no-store",
       })
 
+      console.log("Locations API response status:", response.status)
+      console.log("Locations API response headers:", Object.fromEntries([...response.headers.entries()]))
+
       if (!response.ok) {
-        throw new Error(`API key validation failed: ${response.status}`)
+        const errorText = await response.text()
+        console.error(`API key validation failed (${response.status}): ${errorText}`)
+        throw new Error(`API key validation failed: ${response.status} - ${errorText}`)
       }
 
       const data = await response.json()
+      console.log("Locations API response data:", data)
 
       if (data.status === 200) {
+        setEventsApiKey(apiKey)
         setIsEventsKeyValid(true)
         setLocations(data.data || [])
         console.log("API key validated successfully. Locations:", data.data)
@@ -439,24 +459,36 @@ export default function Dashboard() {
 
     try {
       const url = `${getEventsBaseUrl()}/task/list?location=${locationId}`
-      console.log("Fetching tasks from URL:", url)
-      console.log("Using API key:", eventsApiKey.substring(0, 5) + "...")
+
+      // Create and log the curl command for debugging
+      const curlCommand = `curl -X GET "${url}" -H "Authorization: Bearer ${eventsApiKey.substring(0, 5)}..."`
+      console.log("=== TASK API REQUEST ===")
+      console.log(`URL: ${url}`)
+      console.log(`Headers: { Authorization: "Bearer ${eventsApiKey.substring(0, 5)}..." }`)
+      console.log(
+        `Full curl command for testing: ${curlCommand.replace(eventsApiKey.substring(0, 5) + "...", "${YOUR_API_KEY}")}`,
+      )
 
       const response = await fetch(url, {
         headers: {
           Authorization: `Bearer ${eventsApiKey}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
         },
+        cache: "no-store",
       })
 
       console.log("Task API response status:", response.status)
+      console.log("Task API response headers:", Object.fromEntries([...response.headers.entries()]))
 
       if (!response.ok) {
         const errorText = await response.text()
         console.error(`Failed to fetch tasks (${response.status}): ${errorText}`)
-        throw new Error(`Failed to fetch tasks: ${response.status}`)
+        throw new Error(`Failed to fetch tasks: ${response.status} - ${errorText}`)
       }
 
       const data = await response.json()
+      console.log("Task API response data:", data)
 
       if (data.status === 200) {
         setTasks(data.data || [])
@@ -480,17 +512,37 @@ export default function Dashboard() {
     setError(null)
 
     try {
-      const response = await fetch(`${getEventsBaseUrl()}/camera/get?location=${locationId}&task=${taskId}`, {
+      const url = `${getEventsBaseUrl()}/camera/get?location=${locationId}&task=${taskId}`
+
+      // Create and log the curl command for debugging
+      const curlCommand = `curl -X GET "${url}" -H "Authorization: Bearer ${eventsApiKey.substring(0, 5)}..."`
+      console.log("=== CAMERA API REQUEST ===")
+      console.log(`URL: ${url}`)
+      console.log(`Headers: { Authorization: "Bearer ${eventsApiKey.substring(0, 5)}..." }`)
+      console.log(
+        `Full curl command for testing: ${curlCommand.replace(eventsApiKey.substring(0, 5) + "...", "${YOUR_API_KEY}")}`,
+      )
+
+      const response = await fetch(url, {
         headers: {
           Authorization: `Bearer ${eventsApiKey}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
         },
+        cache: "no-store",
       })
 
+      console.log("Camera API response status:", response.status)
+      console.log("Camera API response headers:", Object.fromEntries([...response.headers.entries()]))
+
       if (!response.ok) {
-        throw new Error(`Failed to fetch cameras: ${response.status}`)
+        const errorText = await response.text()
+        console.error(`Failed to fetch cameras (${response.status}): ${errorText}`)
+        throw new Error(`Failed to fetch cameras: ${response.status} - ${errorText}`)
       }
 
       const data = await response.json()
+      console.log("Camera API response data:", data)
 
       if (data.status === 200) {
         setCameras(data.data?.data || [])
@@ -570,6 +622,32 @@ export default function Dashboard() {
     setEventsToDate(toDate)
 
     try {
+      // Build query parameters
+      let queryParams = `?from=${fromDate}&to=${toDate}`
+
+      if (locationId) {
+        queryParams += `&location=${locationId}`
+      }
+
+      if (taskId) {
+        queryParams += `&task=${taskId}`
+      }
+
+      if (cameraId) {
+        queryParams += `&camera=${cameraId}`
+      }
+
+      const url = `${getEventsBaseUrl()}/events/get/${limit}/${page}${queryParams}`
+
+      // Create and log the curl command for debugging
+      const curlCommand = `curl -X GET "${url}" -H "Authorization: Bearer ${eventsApiKey.substring(0, 5)}..."`
+      console.log("=== EVENTS API REQUEST ===")
+      console.log(`URL: ${url}`)
+      console.log(`Headers: { Authorization: "Bearer ${eventsApiKey.substring(0, 5)}..." }`)
+      console.log(
+        `Full curl command for testing: ${curlCommand.replace(eventsApiKey.substring(0, 5) + "...", "${YOUR_API_KEY}")}`,
+      )
+
       // Create a new FormData object for the server action
       const serverFormData = new FormData()
       serverFormData.append("api_key", eventsApiKey)
