@@ -16,6 +16,11 @@
       "prompt": "For compliance, you must detect if any bin is empty or running low. Identify all visible food bins and classify each as: Full (any food visibly present and the metal bottom of the bin is not clearly visible, even if the surface is uneven or a spoon is placed), Partial (only if the bin has large empty areas and the metal bottom is visible in at least one-third of the bin), or Empty (almost no food is visible and the bottom is mostly exposed). Spoons, prongs, shadows, and food gaps should be ignored when judging fullness. Be lenient: if food is covering most of the bin even with uneven surface, it is Full. Then apply this logic: If all bins are Full, return 'Full'. If even one bin is Empty, or if two or more bins are Partial, return 'Empty'. Output only one word: 'Full' or 'Empty'. No explanation or extra text."
     },
     {
+      "id": "empty-bins",
+      "name": "Empty bins V2",
+      "prompt": "Analyze the image to determine if each individual bin/container is full or empty based on the presence of food items. Consider a bin 'full' if it contains any visible food. Consider a bin 'empty' only if there is no food visible within it. Ignore any spoons, prongs, or shadows when assessing the presence of food. Even if 1 container is empty, consider final response to be empty.Reply in only a single word: Full or Empty."
+    },
+    {
       "id": "door-blocked",
       "name": "Door blocked",
       "prompt": "Analyze this image and determine if the door is blocked or obstructed in any way. Identify any objects, equipment, or items that might be preventing the door from opening fully or creating a safety hazard. Give answer as Blocked or Not Blocked."

@@ -142,18 +142,14 @@ export default function CostCalculator({ isDevMode = false }) {
           <label htmlFor="cameraCount" className="block text-sm font-medium">
             Number of Cameras
           </label>
-          <select
+          <input
             id="cameraCount"
+            type="number"
+            min="1"
             value={cameraCount}
-            onChange={(e) => setCameraCount(Number.parseInt(e.target.value))}
+            onChange={(e) => setCameraCount(Math.max(1, Number.parseInt(e.target.value) || 1))}
             className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-          >
-            {[1, 2, 3, 4, 5, 10, 15, 20, 25, 30, 40, 50, 75, 100].map((count) => (
-              <option key={count} value={count}>
-                {count} {count === 1 ? "Camera" : "Cameras"}
-              </option>
-            ))}
-          </select>
+          />
         </div>
       </div>
 
