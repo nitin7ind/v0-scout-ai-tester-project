@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { useTheme } from "@/components/theme-provider"
 import { fetchScoutAIImages, processImagesWithGPT, analyzeImages, fetchEventsAPI } from "@/app/actions"
 import DashboardForm from "@/components/dashboard-form"
@@ -9,9 +9,6 @@ import Image from "next/image"
 import { Code, Moon, Sun } from "lucide-react"
 import TabNavigation from "@/components/tab-navigation"
 import CostCalculator from "@/components/cost-calculator"
-// Update the import at the top of the file to include React
-// import React, { useState } from "react"
-import EventsAPI from "@/components/events-api"
 
 export default function Dashboard() {
   const [images, setImages] = useState([])
@@ -44,6 +41,45 @@ export default function Dashboard() {
   })
   const { theme, setTheme } = useTheme()
   const [activeTab, setActiveTab] = useState("playground")
+
+  // Events API specific state
+  const [eventsApiKey, setEventsApiKey] = useState("")
+  const [eventsEnvironment, setEventsEnvironment] = useState("production")
+  const [isEventsKeyValid, setIsEventsKeyValid] = useState(false)
+  const [locations, setLocations] = useState([])
+  const [tasks, setTasks] = useState([])
+  const [cameras, setCameras] = useState([])
+  const [selectedLocation, setSelectedLocation] = useState("")
+  const [selectedTask, setSelectedTask] = useState("")
+  const [selectedCamera, setSelectedCamera] = useState("")
+  const [eventsFromDate, setEventsFromDate] = useState(getDefaultFromDate())
+  const [eventsToDate, setEventsToDate] = useState(getCurrentDate())
+  const [eventsLimit, setEventsLimit] = useState(10)
+  const [eventsPage, setEventsPage] = useState(0)
+  const [totalEvents, setTotalEvents] = useState(0)
+
+  // Helper function to get default from date (30 days ago)
+  function getDefaultFromDate() {
+    const date = new Date()
+    date.setDate(date.getDate() - 30)
+    return date.toISOString().split("T")[0]
+  }
+
+  // Helper function to get current date in YYYY-MM-DD format
+  function getCurrentDate() {
+    const today = new Date()
+    const year = today.getFullYear()
+    const month = String(today.getMonth() + 1).padStart(2, "0")
+    const day = String(today.getDate()).padStart(2, "0")
+    return `${year}-${month}-${day}`
+  }
+
+  // Get base URL for Events API based on environment
+  const getEventsBaseUrl = () => {
+    return eventsEnvironment === "production"
+      ? "https://api.wobot.ai/client/v2"
+      : "https://api-staging.wobot.ai/client/v2"
+  }
 
   // Calculate pricing based on token usage and model
   const calculatePricing = () => {
@@ -110,6 +146,17 @@ export default function Dashboard() {
       modelUsed: selectedModel,
     })
     setActiveMode(mode)
+
+    // Reset Events API state if switching away from events mode
+    if (mode !== "events") {
+      setIsEventsKeyValid(false)
+      setLocations([])
+      setTasks([])
+      setCameras([])
+      setSelectedLocation("")
+      setSelectedTask("")
+      setSelectedCamera("")
+    }
   }
 
   // Step 1: Fetch images from ScoutAI API
@@ -293,14 +340,19 @@ export default function Dashboard() {
   }
 
   const handlePageChange = (page) => {
-    // Create a new FormData object with the current form values
-    const form = document.querySelector("form")
-    if (!form) return
+    if (activeMode === "scoutai") {
+      // Create a new FormData object with the current form values
+      const form = document.querySelector("form")
+      if (!form) return
 
-    const formData = new FormData(form)
-    formData.set("page", page.toString())
+      const formData = new FormData(form)
+      formData.set("page", page.toString())
 
-    handleFetchImages(formData)
+      handleFetchImages(formData)
+    } else if (activeMode === "events") {
+      // For Events API, use the events page change handler
+      handleEventsPageChange(page - 1) // Convert to 0-indexed for Events API
+    }
   }
 
   // Update the handleFormSubmit function to handle the Events API option
@@ -315,18 +367,171 @@ export default function Dashboard() {
     if (inputType === "manual") {
       handleManualAnalyze(formData)
     } else if (inputType === "events") {
-      handleFetchEvents(formData)
+      // For Events API, we need to handle API key validation first
+      const apiKey = formData.get("api_key")
+      const env = formData.get("events_env") || "production"
+
+      setEventsApiKey(apiKey)
+      setEventsEnvironment(env)
+
+      if (isEventsKeyValid) {
+        // If key is already validated, fetch events
+        handleFetchEvents(formData)
+      } else {
+        // Otherwise, validate the key first
+        validateEventsApiKey(apiKey, env)
+      }
     } else {
       handleFetchImages(formData)
     }
   }
 
-  // Add the handleFetchEvents function
+  // Validate Events API key
+  const validateEventsApiKey = async (apiKey, environment) => {
+    if (!apiKey) {
+      setError("API key is required")
+      return
+    }
+
+    setIsLoading(true)
+    setError(null)
+    setEventsEnvironment(environment)
+
+    try {
+      const baseUrl =
+        environment === "production" ? "https://api.wobot.ai/client/v2" : "https://api-staging.wobot.ai/client/v2"
+
+      // Try to fetch locations as a validation test
+      const response = await fetch(`${baseUrl}/locations/get`, {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error(`API key validation failed: ${response.status}`)
+      }
+
+      const data = await response.json()
+
+      if (data.status === 200) {
+        setIsEventsKeyValid(true)
+        setLocations(data.data || [])
+        console.log("API key validated successfully. Locations:", data.data)
+      } else {
+        throw new Error(data.message || "API key validation failed")
+      }
+    } catch (error) {
+      console.error("API key validation error:", error)
+      setError(`API key validation failed: ${error.message}`)
+      setIsEventsKeyValid(false)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Fetch tasks for selected location
+  const fetchTasks = async (locationId) => {
+    if (!locationId || !isEventsKeyValid) return
+
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      const response = await fetch(`${getEventsBaseUrl()}/task/list?location=${locationId}`, {
+        headers: {
+          Authorization: `Bearer ${eventsApiKey}`,
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch tasks: ${response.status}`)
+      }
+
+      const data = await response.json()
+
+      if (data.status === 200) {
+        setTasks(data.data || [])
+        console.log("Tasks fetched:", data.data)
+      } else {
+        throw new Error(data.message || "Failed to fetch tasks")
+      }
+    } catch (error) {
+      console.error("Error fetching tasks:", error)
+      setError(`Failed to fetch tasks: ${error.message}`)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Fetch cameras for selected location and task
+  const fetchCameras = async (locationId, taskId) => {
+    if (!locationId || !taskId || !isEventsKeyValid) return
+
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      const response = await fetch(`${getEventsBaseUrl()}/camera/get?location=${locationId}&task=${taskId}`, {
+        headers: {
+          Authorization: `Bearer ${eventsApiKey}`,
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch cameras: ${response.status}`)
+      }
+
+      const data = await response.json()
+
+      if (data.status === 200) {
+        setCameras(data.data?.data || [])
+        console.log("Cameras fetched:", data.data?.data)
+      } else {
+        throw new Error(data.message || "Failed to fetch cameras")
+      }
+    } catch (error) {
+      console.error("Error fetching cameras:", error)
+      setError(`Failed to fetch cameras: ${error.message}`)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Handle location change
+  const handleLocationChange = (e) => {
+    const locationId = e.target.value
+    setSelectedLocation(locationId)
+    setSelectedTask("")
+    setSelectedCamera("")
+    setCameras([])
+
+    if (locationId) {
+      fetchTasks(locationId)
+    } else {
+      setTasks([])
+    }
+  }
+
+  // Handle task change
+  const handleTaskChange = (e) => {
+    const taskId = e.target.value
+    setSelectedTask(taskId)
+    setSelectedCamera("")
+
+    if (taskId && selectedLocation) {
+      fetchCameras(selectedLocation, taskId)
+    } else {
+      setCameras([])
+    }
+  }
+
+  // Fetch events from the API
   const handleFetchEvents = async (formData) => {
     setIsLoading(true)
     setImages([])
     setResults([])
-    setSelectedImages([]) // Reset selected images when fetching new events
+    setSelectedImages([])
     setError(null)
     setApiCall("")
     setCurlCommand("")
@@ -335,9 +540,36 @@ export default function Dashboard() {
     setActiveMode("events")
     setSelectedModel(formData.get("model_type") || "gpt")
 
+    // Get form values
+    const limit = Number.parseInt(formData.get("events_limit")) || 10
+    const page = Number.parseInt(formData.get("events_page")) || 0
+    const fromDate = formData.get("events_from_date") || eventsFromDate
+    const toDate = formData.get("events_to_date") || eventsToDate
+    const locationId = selectedLocation || formData.get("events_location") || ""
+    const taskId = selectedTask || formData.get("events_task") || ""
+    const cameraId = selectedCamera || formData.get("events_camera") || ""
+
+    // Update state
+    setEventsLimit(limit)
+    setEventsPage(page)
+    setEventsFromDate(fromDate)
+    setEventsToDate(toDate)
+
     try {
+      // Create a new FormData object for the server action
+      const serverFormData = new FormData()
+      serverFormData.append("api_key", eventsApiKey)
+      serverFormData.append("events_env", eventsEnvironment)
+      serverFormData.append("events_limit", limit.toString())
+      serverFormData.append("events_page", page.toString())
+      serverFormData.append("events_from_date", fromDate)
+      serverFormData.append("events_to_date", toDate)
+      serverFormData.append("events_location", locationId)
+      serverFormData.append("events_task", taskId)
+      serverFormData.append("events_camera", cameraId)
+
       console.log("Fetching events from Events API...")
-      const response = await fetchEventsAPI(formData)
+      const response = await fetchEventsAPI(serverFormData)
       console.log("Fetch complete:", response)
 
       // Check for errors
@@ -354,6 +586,7 @@ export default function Dashboard() {
         totalPages: response.totalPages || 1,
         totalCount: response.totalCount || 0,
       })
+      setTotalEvents(response.totalCount || 0)
       setApiCall(response.apiCall || "")
       setCurlCommand(response.curlCommand || "")
       setApiResponse(response.apiResponse)
@@ -378,6 +611,20 @@ export default function Dashboard() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // Handle Events API page change
+  const handleEventsPageChange = (newPage) => {
+    setEventsPage(newPage)
+
+    // Create a new FormData object for the form submission
+    const form = document.querySelector("form")
+    if (!form) return
+
+    const formData = new FormData(form)
+    formData.set("events_page", newPage.toString())
+
+    handleFetchEvents(formData)
   }
 
   const handleDownload = async (format) => {
@@ -460,6 +707,25 @@ export default function Dashboard() {
     }
   }, [results])
 
+  // Effect to update locations dropdown when API key is validated
+  useEffect(() => {
+    if (isEventsKeyValid && activeMode === "events") {
+      // If we have a valid API key, update the form with the locations
+      const locationSelect = document.getElementById("events_location")
+      if (locationSelect) {
+        // Populate the locations dropdown
+        locationSelect.innerHTML = '<option value="">Select a location...</option>'
+        locations.forEach((location) => {
+          const option = document.createElement("option")
+          option.value = location._id
+          option.textContent = `${location.area} (${location.locationId})`
+          locationSelect.appendChild(option)
+        })
+      }
+    }
+  }, [isEventsKeyValid, locations, activeMode])
+
+  // Update the return statement to remove the Events API tab
   return (
     <div className="container mx-auto p-6">
       <div className="flex justify-between items-center mb-6">
@@ -502,18 +768,208 @@ export default function Dashboard() {
             isDevMode={isDevMode}
           />
 
+          {/* Rest of the playground content... */}
           {isLoading && (
             <div className="mt-6 text-center">
               <div className="flex items-center justify-center gap-2">
                 <div className="animate-spin h-5 w-5 border-2 border-blue-500 rounded-full border-t-transparent"></div>
                 <p className="text-gray-500 dark:text-gray-400">
-                  {activeMode === "scoutai" ? "Fetching images..." : "Processing image..."}
+                  {activeMode === "scoutai"
+                    ? "Fetching images..."
+                    : activeMode === "events"
+                      ? "Fetching events..."
+                      : "Processing image..."}
                 </p>
               </div>
             </div>
           )}
 
-          {/* Rest of the playground tab content... */}
+          {/* Events API Key Validation Form */}
+          {activeMode === "events" && !isEventsKeyValid && !isLoading && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mt-6">
+              <h2 className="text-xl font-medium mb-4">Events API Authentication</h2>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label htmlFor="apiKey" className="block text-sm font-medium">
+                    API Key
+                  </label>
+                  <input
+                    id="apiKey"
+                    type="password"
+                    value={eventsApiKey}
+                    onChange={(e) => setEventsApiKey(e.target.value)}
+                    placeholder="Enter your Wobot API key"
+                    className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="environment" className="block text-sm font-medium">
+                    Environment
+                  </label>
+                  <select
+                    id="environment"
+                    value={eventsEnvironment}
+                    onChange={(e) => setEventsEnvironment(e.target.value)}
+                    className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                  >
+                    <option value="production">Production</option>
+                    <option value="staging">Staging</option>
+                  </select>
+                </div>
+
+                <button
+                  onClick={() => validateEventsApiKey(eventsApiKey, eventsEnvironment)}
+                  disabled={isLoading || !eventsApiKey.trim()}
+                  className="w-full py-2 px-4 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {isLoading ? "Validating..." : "Validate API Key"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Events API Location/Task Selection Form */}
+          {activeMode === "events" && isEventsKeyValid && !isLoading && images.length === 0 && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mt-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-medium">Events Query</h2>
+                <button onClick={() => setIsEventsKeyValid(false)} className="text-sm text-blue-600 dark:text-blue-400">
+                  Change API Key
+                </button>
+              </div>
+
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  handleFetchEvents(new FormData(e.target))
+                }}
+                className="space-y-4"
+              >
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label htmlFor="events_location" className="block text-sm font-medium">
+                      Location
+                    </label>
+                    <select
+                      id="events_location"
+                      name="events_location"
+                      value={selectedLocation}
+                      onChange={handleLocationChange}
+                      className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                    >
+                      <option value="">Select a location...</option>
+                      {locations.map((location) => (
+                        <option key={location._id} value={location._id}>
+                          {location.area} ({location.locationId})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label htmlFor="events_task" className="block text-sm font-medium">
+                      Task
+                    </label>
+                    <select
+                      id="events_task"
+                      name="events_task"
+                      value={selectedTask}
+                      onChange={handleTaskChange}
+                      className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                      disabled={!selectedLocation || tasks.length === 0}
+                    >
+                      <option value="">Select a task...</option>
+                      {tasks.map((task) => (
+                        <option key={task._id} value={task._id}>
+                          {task.task}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label htmlFor="events_camera" className="block text-sm font-medium">
+                      Camera (Optional)
+                    </label>
+                    <select
+                      id="events_camera"
+                      name="events_camera"
+                      value={selectedCamera}
+                      onChange={(e) => setSelectedCamera(e.target.value)}
+                      className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                      disabled={!selectedTask || cameras.length === 0}
+                    >
+                      <option value="">All Cameras</option>
+                      {cameras.map((camera) => (
+                        <option key={camera._id} value={camera._id}>
+                          {camera.camera} ({camera.status})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label htmlFor="events_limit" className="block text-sm font-medium">
+                      Results Per Page
+                    </label>
+                    <input
+                      id="events_limit"
+                      name="events_limit"
+                      type="number"
+                      min="1"
+                      max="50"
+                      value={eventsLimit}
+                      onChange={(e) => setEventsLimit(Math.min(50, Math.max(1, Number.parseInt(e.target.value) || 1)))}
+                      className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label htmlFor="events_from_date" className="block text-sm font-medium">
+                      From Date
+                    </label>
+                    <input
+                      id="events_from_date"
+                      name="events_from_date"
+                      type="date"
+                      value={eventsFromDate}
+                      onChange={(e) => setEventsFromDate(e.target.value)}
+                      className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label htmlFor="events_to_date" className="block text-sm font-medium">
+                      To Date
+                    </label>
+                    <input
+                      id="events_to_date"
+                      name="events_to_date"
+                      type="date"
+                      value={eventsToDate}
+                      onChange={(e) => setEventsToDate(e.target.value)}
+                      className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                    />
+                  </div>
+                </div>
+
+                <input type="hidden" name="api_key" value={eventsApiKey} />
+                <input type="hidden" name="events_env" value={eventsEnvironment} />
+                <input type="hidden" name="events_page" value={eventsPage} />
+
+                <button
+                  type="submit"
+                  disabled={isLoading || !selectedTask}
+                  className="w-full py-2 px-4 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {isLoading ? "Fetching Events..." : "Fetch Events"}
+                </button>
+              </form>
+            </div>
+          )}
+
+          {/* Error display */}
           {error && (
             <div className="mt-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-red-600 dark:text-red-400">
               <h3 className="font-medium mb-2">Error</h3>
@@ -626,13 +1082,13 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* Display ScoutAI images and Process button */}
-          {activeMode === "scoutai" && images.length > 0 && !isLoading && (
+          {/* Display ScoutAI or Events API images and Process button */}
+          {(activeMode === "scoutai" || activeMode === "events") && images.length > 0 && !isLoading && (
             <div className="mt-6">
               <div className="flex justify-between items-center mb-4">
                 <div className="flex items-center gap-2">
                   <h2 className="text-xl font-medium">
-                    Images ({images.length})
+                    {activeMode === "events" ? "Events" : "Images"} ({images.length})
                     {pagination && pagination.totalCount > 0 && (
                       <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">
                         Page {pagination.currentPage} of {pagination.totalPages} ({pagination.totalCount} total)
@@ -865,10 +1321,8 @@ export default function Dashboard() {
             </div>
           )}
         </>
-      ) : activeTab === "calculator" ? (
-        <CostCalculator isDevMode={isDevMode} />
       ) : (
-        <EventsAPI isDevMode={isDevMode} />
+        <CostCalculator isDevMode={isDevMode} />
       )}
 
       {/* Password modal for dev mode */}

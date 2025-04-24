@@ -105,12 +105,6 @@ export default function DashboardForm({
     }
   }
 
-  const getDefaultFromDate = () => {
-    const date = new Date()
-    date.setDate(date.getDate() - 7) // Subtract 7 days
-    return date.toISOString().split("T")[0] // Format as YYYY-MM-DD
-  }
-
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
       <form onSubmit={handleSubmit} className="space-y-4">
