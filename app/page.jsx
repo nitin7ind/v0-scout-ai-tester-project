@@ -1131,7 +1131,7 @@ export default function Dashboard() {
                       </div>
                       <div className="p-4">
                         {/* Show event details if available */}
-                        {displayItem.eventData && (
+                        {displayItem.eventData && false && (
                           <div className="mb-2">
                             <p className="text-sm font-medium">{displayItem.eventData.title || "Event"}</p>
                             <p className="text-xs text-gray-500 dark:text-gray-400">
