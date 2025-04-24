@@ -2,7 +2,7 @@
 
 import React, { useState } from "react"
 import { useTheme } from "@/components/theme-provider"
-import { fetchScoutAIImages, processImagesWithGPT, analyzeImages } from "@/app/actions"
+import { fetchScoutAIImages, processImagesWithGPT, analyzeImages, fetchEventsAPI } from "@/app/actions"
 import DashboardForm from "@/components/dashboard-form"
 import PasswordModal from "@/components/password-modal"
 import Image from "next/image"
@@ -11,6 +11,7 @@ import TabNavigation from "@/components/tab-navigation"
 import CostCalculator from "@/components/cost-calculator"
 // Update the import at the top of the file to include React
 // import React, { useState } from "react"
+import EventsAPI from "@/components/events-api"
 
 export default function Dashboard() {
   const [images, setImages] = useState([])
@@ -302,6 +303,7 @@ export default function Dashboard() {
     handleFetchImages(formData)
   }
 
+  // Update the handleFormSubmit function to handle the Events API option
   const handleFormSubmit = (formData) => {
     const inputType = formData.get("input_type")
 
@@ -312,8 +314,69 @@ export default function Dashboard() {
 
     if (inputType === "manual") {
       handleManualAnalyze(formData)
+    } else if (inputType === "events") {
+      handleFetchEvents(formData)
     } else {
       handleFetchImages(formData)
+    }
+  }
+
+  // Add the handleFetchEvents function
+  const handleFetchEvents = async (formData) => {
+    setIsLoading(true)
+    setImages([])
+    setResults([])
+    setSelectedImages([]) // Reset selected images when fetching new events
+    setError(null)
+    setApiCall("")
+    setCurlCommand("")
+    setApiResponse(null)
+    setPrompt(formData.get("prompt") || "")
+    setActiveMode("events")
+    setSelectedModel(formData.get("model_type") || "gpt")
+
+    try {
+      console.log("Fetching events from Events API...")
+      const response = await fetchEventsAPI(formData)
+      console.log("Fetch complete:", response)
+
+      // Check for errors
+      if (response.error) {
+        setError(response.error)
+        console.error("Error returned from fetchEventsAPI:", response.error)
+        return
+      }
+
+      // Update state with response data
+      setImages(response.images || [])
+      setPagination({
+        currentPage: response.currentPage || 1,
+        totalPages: response.totalPages || 1,
+        totalCount: response.totalCount || 0,
+      })
+      setApiCall(response.apiCall || "")
+      setCurlCommand(response.curlCommand || "")
+      setApiResponse(response.apiResponse)
+      setStats({
+        totalFetched: response.images?.length || 0,
+        processedCount: 0,
+        promptTokens: 0,
+        completionTokens: 0,
+        totalTokens: 0,
+        modelUsed: selectedModel,
+      })
+
+      // Show error if no images were fetched
+      if (!response.images || response.images.length === 0) {
+        setError(
+          "No events were found. The Events API returned zero events. Please check your input parameters (task ID, dates) and try again.",
+        )
+      }
+    } catch (error) {
+      console.error("Error fetching events:", error)
+      setError(`Error fetching events: ${error instanceof Error ? error.message : String(error)}`)
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -450,17 +513,7 @@ export default function Dashboard() {
             </div>
           )}
 
-          {isProcessing && (
-            <div className="mt-6 text-center">
-              <div className="flex items-center justify-center gap-2">
-                <div className="animate-spin h-5 w-5 border-2 border-blue-500 rounded-full border-t-transparent"></div>
-                <p className="text-gray-500 dark:text-gray-400">
-                  Processing images{isDevMode ? ` with ${getFriendlyModelName(selectedModel)}` : ""}...
-                </p>
-              </div>
-            </div>
-          )}
-
+          {/* Rest of the playground tab content... */}
           {error && (
             <div className="mt-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-red-600 dark:text-red-400">
               <h3 className="font-medium mb-2">Error</h3>
@@ -692,6 +745,23 @@ export default function Dashboard() {
                         )}
                       </div>
                       <div className="p-4">
+                        {/* Show event details if available */}
+                        {displayItem.eventData && (
+                          <div className="mb-2">
+                            <p className="text-sm font-medium">{displayItem.eventData.title || "Event"}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              {new Date(displayItem.eventData.createdAt).toLocaleString()}
+                            </p>
+                            {displayItem.eventData.metadata && (
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                {displayItem.eventData.metadata.location ||
+                                  displayItem.eventData.metadata.locationId ||
+                                  ""}
+                              </p>
+                            )}
+                          </div>
+                        )}
+
                         {displayItem.processed ? (
                           <>
                             <p className="text-sm">
@@ -795,8 +865,10 @@ export default function Dashboard() {
             </div>
           )}
         </>
-      ) : (
+      ) : activeTab === "calculator" ? (
         <CostCalculator isDevMode={isDevMode} />
+      ) : (
+        <EventsAPI isDevMode={isDevMode} />
       )}
 
       {/* Password modal for dev mode */}

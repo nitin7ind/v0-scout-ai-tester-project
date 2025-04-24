@@ -4,6 +4,7 @@ export default function TabNavigation({ activeTab, onTabChange }) {
   const tabs = [
     { id: "playground", label: "Playground" },
     { id: "calculator", label: "Calculator" },
+    { id: "events", label: "Events API" },
   ]
 
   return (

@@ -4,6 +4,14 @@ import { useState, useEffect } from "react"
 import { getCurrentDate, cn } from "@/lib/utils"
 import tasksData from "@/lib/tasks.json"
 
+// Add this function at the top of the component
+// Get default from date (30 days ago)
+function getDefaultFromDate() {
+  const date = new Date()
+  date.setDate(date.getDate() - 30)
+  return date.toISOString().split("T")[0]
+}
+
 export default function DashboardForm({
   onSubmit,
   currentPage = 1,
@@ -97,6 +105,12 @@ export default function DashboardForm({
     }
   }
 
+  const getDefaultFromDate = () => {
+    const date = new Date()
+    date.setDate(date.getDate() - 7) // Subtract 7 days
+    return date.toISOString().split("T")[0] // Format as YYYY-MM-DD
+  }
+
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -183,7 +197,6 @@ export default function DashboardForm({
         <div className="space-y-2">
           <span className="block text-sm font-medium">Select Image Input Method</span>
           <div className="flex gap-4">
-            {/* Swapped the order of these radio buttons */}
             <div className="flex items-center space-x-2">
               <input
                 type="radio"
@@ -205,6 +218,17 @@ export default function DashboardForm({
                 onChange={() => handleInputTypeChange("scoutai")}
               />
               <label htmlFor="scoutai">ScoutAI API</label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="radio"
+                id="events"
+                name="input_type"
+                value="events"
+                checked={inputType === "events"}
+                onChange={() => handleInputTypeChange("events")}
+              />
+              <label htmlFor="events">Events API</label>
             </div>
           </div>
         </div>
@@ -366,6 +390,139 @@ export default function DashboardForm({
                   </button>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {inputType === "events" && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <label htmlFor="api_key" className="block text-sm font-medium">
+                  API Key
+                </label>
+                <input
+                  id="api_key"
+                  name="api_key"
+                  type="password"
+                  placeholder="Enter your Wobot API key"
+                  className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="events_env" className="block text-sm font-medium">
+                  Environment
+                </label>
+                <select
+                  id="events_env"
+                  name="events_env"
+                  className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                  defaultValue="production"
+                >
+                  <option value="production">Production</option>
+                  <option value="staging">Staging</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="events_limit" className="block text-sm font-medium">
+                  Results Per Page
+                </label>
+                <input
+                  id="events_limit"
+                  name="events_limit"
+                  type="number"
+                  min="1"
+                  max="50"
+                  defaultValue="10"
+                  className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="events_page" className="block text-sm font-medium">
+                  Page
+                </label>
+                <input
+                  id="events_page"
+                  name="events_page"
+                  type="number"
+                  min="0"
+                  defaultValue="0"
+                  className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="events_from_date" className="block text-sm font-medium">
+                  From Date
+                </label>
+                <input
+                  id="events_from_date"
+                  name="events_from_date"
+                  type="date"
+                  defaultValue={getDefaultFromDate()}
+                  className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="events_to_date" className="block text-sm font-medium">
+                  To Date
+                </label>
+                <input
+                  id="events_to_date"
+                  name="events_to_date"
+                  type="date"
+                  defaultValue={currentDate}
+                  className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <label htmlFor="events_location" className="block text-sm font-medium">
+                  Location ID (Optional)
+                </label>
+                <input
+                  id="events_location"
+                  name="events_location"
+                  placeholder="Location ID"
+                  className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="events_task" className="block text-sm font-medium">
+                  Task ID
+                </label>
+                <input
+                  id="events_task"
+                  name="events_task"
+                  placeholder="Task ID"
+                  className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="events_camera" className="block text-sm font-medium">
+                  Camera ID (Optional)
+                </label>
+                <input
+                  id="events_camera"
+                  name="events_camera"
+                  placeholder="Camera ID"
+                  className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                />
+              </div>
             </div>
           </div>
         )}
