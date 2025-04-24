@@ -478,7 +478,9 @@ export default function DashboardForm({
                       name="events_location"
                       value={eventsLocation || ""}
                       onChange={(e) => {
-                        if (onEventsLocationChange) onEventsLocationChange(e.target.value)
+                        if (onEventsLocationChange) {
+                          onEventsLocationChange(e)
+                        }
                       }}
                       className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
                     >
@@ -501,7 +503,9 @@ export default function DashboardForm({
                       name="events_task"
                       value={eventsTask || ""}
                       onChange={(e) => {
-                        if (onEventsTaskChange) onEventsTaskChange(e.target.value)
+                        if (onEventsTaskChange) {
+                          onEventsTaskChange(e)
+                        }
                       }}
                       className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
                       disabled={!eventsLocation || !eventsTasks || eventsTasks.length === 0}
@@ -525,7 +529,9 @@ export default function DashboardForm({
                       name="events_camera"
                       value={eventsCamera || ""}
                       onChange={(e) => {
-                        if (onEventsCameraChange) onEventsCameraChange(e.target.value)
+                        if (onEventsCameraChange) {
+                          onEventsCameraChange(e)
+                        }
                       }}
                       className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
                       disabled={!eventsTask || !eventsCameras || eventsCameras.length === 0}

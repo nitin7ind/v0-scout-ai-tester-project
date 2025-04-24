@@ -526,6 +526,12 @@ export default function Dashboard() {
     }
   }
 
+  // Add a handleCameraChange function
+  const handleCameraChange = (e) => {
+    const cameraId = e.target.value
+    setSelectedCamera(cameraId)
+  }
+
   // Fetch events from the API
   const handleFetchEvents = async (formData) => {
     setIsLoading(true)
@@ -781,7 +787,7 @@ export default function Dashboard() {
             onEventsApiReset={() => setIsEventsKeyValid(false)}
             onEventsLocationChange={handleLocationChange}
             onEventsTaskChange={handleTaskChange}
-            onEventsCameraChange={(value) => setSelectedCamera(value)}
+            onEventsCameraChange={handleCameraChange}
           />
 
           {/* Rest of the playground content... */}
@@ -900,6 +906,12 @@ export default function Dashboard() {
                 <button
                   onClick={() => handleDownload("json")}
                   className="px-3 py-1 bg-purple-600 text-white rounded-md hover:bg-purple-700 mr-2"
+                >
+                  Download JSON
+                </button>
+                <button
+                  onClick={() => handleDownload("csv")}
+                  className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700"
                 >
                   Download JSON
                 </button>
