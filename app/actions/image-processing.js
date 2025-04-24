@@ -24,11 +24,17 @@ export async function processImagesWithGPT(images, prompt, selectedImageIndices 
     console.log(
       `Starting ${modelType.toUpperCase()} processing for ${imagesToProcess.length} images with prompt: ${prompt}`,
     )
-    console.log(
-      selectedImageIndices && selectedImageIndices.length > 0
-        ? `Processing ${selectedImageIndices.length} selected images`
-        : `Processing all ${images.length} images`,
-    )
+
+    // Add batch processing logic
+    const BATCH_SIZE = 10 // Process 10 images at a time to avoid timeouts
+    const batches = []
+
+    // Split images into batches
+    for (let i = 0; i < imagesToProcess.length; i += BATCH_SIZE) {
+      batches.push(imagesToProcess.slice(i, i + BATCH_SIZE))
+    }
+
+    console.log(`Split processing into ${batches.length} batches of up to ${BATCH_SIZE} images each`)
 
     const results = []
     let processedCount = 0
@@ -40,64 +46,70 @@ export async function processImagesWithGPT(images, prompt, selectedImageIndices 
     // Create a map to track which images have been processed
     const processedMap = new Map()
 
-    // Process selected images sequentially
-    for (let i = 0; i < imagesToProcess.length; i++) {
-      const imageToProcess = imagesToProcess[i]
-      const imageUrl = imageToProcess.image
-      const originalIndex = images.findIndex((img) => img.image === imageUrl)
+    // Process batches sequentially
+    for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+      const batch = batches[batchIndex]
+      console.log(`Processing batch ${batchIndex + 1}/${batches.length} with ${batch.length} images`)
 
-      console.log(
-        `Processing image ${i + 1}/${imagesToProcess.length}: ${imageUrl} (Serial #${imageToProcess.serialNumber})`,
-      )
-
-      try {
-        // Call the appropriate AI model based on modelType
-        let result
-        if (modelType === "gemini") {
-          result = await getLabelFromImageUrlWithGemini(imageUrl, prompt)
-        } else {
-          result = await getLabelFromImageUrlWithGPT(imageUrl, prompt)
-        }
-
-        // Update the image object with results
-        const processedImage = {
-          ...imageToProcess,
-          processed: true,
-          label: result.label,
-          tokens: result.tokens,
-          modelUsed: modelType,
-        }
-
-        // Mark this image as processed in our map
-        processedMap.set(imageUrl, processedImage)
-
-        processedCount++
-
-        // Update tokens
-        const tokens = result.tokens || { prompt: 0, completion: 0, total: 0 }
-        promptTokens += tokens.prompt
-        completionTokens += tokens.completion
-        totalTokens += tokens.total
+      // Process images in the current batch
+      for (let i = 0; i < batch.length; i++) {
+        const imageToProcess = batch[i]
+        const imageUrl = imageToProcess.image
+        const originalIndex = images.findIndex((img) => img.image === imageUrl)
 
         console.log(
-          `Image ${i + 1} processed with ${modelType}. Tokens used: prompt=${tokens.prompt}, completion=${tokens.completion}, total=${tokens.total}`,
+          `Processing image ${i + 1}/${batch.length} in batch ${batchIndex + 1}: ${imageUrl} (Serial #${imageToProcess.serialNumber})`,
         )
-      } catch (error) {
-        console.error(`Failed to process image ${i + 1}:`, error)
 
-        // Add error information to the image object
-        const errorImage = {
-          ...imageToProcess,
-          processed: true,
-          label: `Error: ${error.message || "Failed to process image"}`,
-          error: true,
-          modelUsed: modelType,
+        try {
+          // Call the appropriate AI model based on modelType
+          let result
+          if (modelType === "gemini") {
+            result = await getLabelFromImageUrlWithGemini(imageUrl, prompt)
+          } else {
+            result = await getLabelFromImageUrlWithGPT(imageUrl, prompt)
+          }
+
+          // Update the image object with results
+          const processedImage = {
+            ...imageToProcess,
+            processed: true,
+            label: result.label,
+            tokens: result.tokens,
+            modelUsed: modelType,
+          }
+
+          // Mark this image as processed in our map
+          processedMap.set(imageUrl, processedImage)
+
+          processedCount++
+
+          // Update tokens
+          const tokens = result.tokens || { prompt: 0, completion: 0, total: 0 }
+          promptTokens += tokens.prompt
+          completionTokens += tokens.completion
+          totalTokens += tokens.total
+
+          console.log(
+            `Image ${i + 1} in batch ${batchIndex + 1} processed with ${modelType}. Tokens used: prompt=${tokens.prompt}, completion=${tokens.completion}, total=${tokens.total}`,
+          )
+        } catch (error) {
+          console.error(`Failed to process image ${i + 1} in batch ${batchIndex + 1}:`, error)
+
+          // Add error information to the image object
+          const errorImage = {
+            ...imageToProcess,
+            processed: true,
+            label: `Error: ${error.message || "Failed to process image"}`,
+            error: true,
+            modelUsed: modelType,
+          }
+
+          // Mark this image as processed (with error) in our map
+          processedMap.set(imageUrl, errorImage)
+
+          errorCount++
         }
-
-        // Mark this image as processed (with error) in our map
-        processedMap.set(imageUrl, errorImage)
-
-        errorCount++
       }
     }
 

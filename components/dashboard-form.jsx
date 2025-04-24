@@ -204,6 +204,27 @@ export default function DashboardForm({
           </div>
         )}
 
+        {/* Add a batch size option for developers */}
+        {isDevMode && (
+          <div className="space-y-2">
+            <label htmlFor="batch_size" className="block text-sm font-medium">
+              Batch Size
+            </label>
+            <input
+              id="batch_size"
+              name="batch_size"
+              type="number"
+              min="1"
+              max="20"
+              defaultValue="10"
+              className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+            />
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Process images in smaller batches to avoid timeouts (developer mode only)
+            </p>
+          </div>
+        )}
+
         <div className="space-y-2">
           <span className="block text-sm font-medium">Select Image Input Method</span>
           <div className="flex gap-4">

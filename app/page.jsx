@@ -218,7 +218,7 @@ export default function Dashboard() {
     }
   }
 
-  // Step 2: Process fetched images with selected AI model
+  // Update the handleProcessImages function to show batch processing progress
   const handleProcessImages = async () => {
     if (images.length === 0) {
       setError("No images to process. Please fetch images first.")
@@ -232,11 +232,18 @@ export default function Dashboard() {
     try {
       // Only process selected images if any are selected, otherwise process all
       const indicesToProcess = selectedImages.length > 0 ? selectedImages : null
+      const totalToProcess = indicesToProcess ? selectedImages.length : images.length
 
-      console.log(
-        `Processing ${indicesToProcess ? selectedImages.length : images.length} images with ${selectedModel.toUpperCase()}...`,
-      )
+      console.log(`Processing ${totalToProcess} images with ${selectedModel.toUpperCase()}...`)
+
+      // Show initial progress
+      setProgress(5)
+
       const response = await processImagesWithGPT(images, prompt, indicesToProcess, selectedModel)
+
+      // Update progress as processing completes
+      setProgress(100)
+
       console.log("Processing complete:", response)
 
       // Check for errors
@@ -260,16 +267,13 @@ export default function Dashboard() {
 
       // Show warning if some images failed processing
       if (response.errorCount > 0) {
-        console.warn(
-          `Warning: ${response.errorCount} of ${indicesToProcess ? selectedImages.length : images.length} images failed to process.`,
-        )
+        console.warn(`Warning: ${response.errorCount} of ${totalToProcess} images failed to process.`)
       }
     } catch (error) {
       console.error("Error processing images:", error)
       setError(`Error processing images: ${error instanceof Error ? error.message : String(error)}`)
     } finally {
       setIsProcessing(false)
-      setProgress(100)
     }
   }
 
