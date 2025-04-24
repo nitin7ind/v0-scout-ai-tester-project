@@ -1118,7 +1118,7 @@ export default function Dashboard() {
                             src={displayItem.image || "/placeholder.svg"}
                             alt={`Image ${displayItem.serialNumber}`}
                             fill
-                            className="object-cover"
+                            className="object-fill"
                             unoptimized
                           />
                         ) : (

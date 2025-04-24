@@ -677,7 +677,7 @@ export default function EventsAPI({ isDevMode = false }) {
                             src={event.image || "/placeholder.svg"}
                             alt={`Event ${index + 1}`}
                             fill
-                            className="object-cover"
+                            className="object-fill"
                             unoptimized
                           />
                         ) : (
