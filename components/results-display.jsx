@@ -153,7 +153,7 @@ export default function ResultsDisplay({ results, stats, onDownload, pagination,
                     src={item.image || "/placeholder.svg"}
                     alt={`Image ${index + 1}`}
                     fill
-                    className="object-fill"
+                    className="object-contain" // Changed from object-fill to object-contain
                     unoptimized
                   />
                 ) : (
