@@ -13,12 +13,6 @@ function getDefaultFromDate() {
   return date.toISOString().split("T")[0]
 }
 
-// Find SmartSafe Enclosure Open task ID
-function getSmartSafeTaskId() {
-  const smartSafeTask = scoutAITasks.find((task) => task.name === "SmartSafe Enclosure Open")
-  return smartSafeTask ? smartSafeTask.id : ""
-}
-
 export default function DashboardForm({
   onSubmit,
   currentPage = 1,
@@ -56,8 +50,6 @@ export default function DashboardForm({
   const currentDate = getCurrentDate()
   const yesterdayDate = getYesterdayDate()
   const [companyId, setCompanyId] = useState("")
-  const [companyIdFromUrl, setCompanyIdFromUrl] = useState(false)
-  const smartSafeTaskId = getSmartSafeTaskId()
 
   // Check for company ID in URL on component mount
   useEffect(() => {
@@ -66,7 +58,6 @@ export default function DashboardForm({
       const companyParam = urlParams.get("company")
       if (companyParam) {
         setCompanyId(companyParam)
-        setCompanyIdFromUrl(true)
       }
     }
   }, [])
@@ -105,41 +96,18 @@ export default function DashboardForm({
     }
   }, [prompt, onPromptChange])
 
-  const handleSubmit = (e) => {
-    // Always prevent default form submission to avoid page reload and URL parameter appending
+  const handleSubmit = async (e) => {
     e.preventDefault()
-
     const form = e.currentTarget
     const formData = new FormData(form)
 
     // Ensure the correct prompt is submitted
-    formData.set("prompt", prompt || "Default prompt for fetching images")
+    formData.set("prompt", prompt)
 
     // Add model type to form data
     formData.set("model_type", modelType)
 
-    // Set environment to production in normal mode
-    if (!isDevMode) {
-      formData.set("env", "prod")
-    }
-
-    // Ensure company ID is included if it's from URL
-    if (companyIdFromUrl) {
-      formData.set("company_id", companyId)
-    }
-
-    // Ensure task_id is set for ScoutAI mode
-    if (inputType === "scoutai") {
-      const taskId = formData.get("task_id")
-      if (!taskId || taskId === "") {
-        formData.set("task_id", smartSafeTaskId)
-      }
-    }
-
-    // Call the onSubmit prop function with the formData
-    if (onSubmit) {
-      onSubmit(formData)
-    }
+    await onSubmit(formData)
   }
 
   // Handle input type change
@@ -169,8 +137,7 @@ export default function DashboardForm({
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
-      {/* Explicitly set method to POST and add onSubmit handler */}
-      <form onSubmit={handleSubmit} className="space-y-4" method="POST">
+      <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
           <label htmlFor="task" className="block text-sm font-medium">
             Select Prompt
@@ -208,6 +175,7 @@ export default function DashboardForm({
               selectedTask !== "custom" && "bg-gray-50 dark:bg-gray-800",
             )}
             readOnly={selectedTask !== "custom"}
+            required
           />
           <input type="hidden" name="prompt" value={prompt} />
         </div>
@@ -336,44 +304,36 @@ export default function DashboardForm({
 
         {inputType === "scoutai" && (
           <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Only show environment in dev mode */}
-              {isDevMode && (
-                <div className="space-y-2">
-                  <label htmlFor="env" className="block text-sm font-medium">
-                    Environment
-                  </label>
-                  <select
-                    id="env"
-                    name="env"
-                    className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                    defaultValue="prod"
-                  >
-                    <option value="prod">Production</option>
-                    <option value="staging">Staging</option>
-                  </select>
-                </div>
-              )}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <label htmlFor="env" className="block text-sm font-medium">
+                  Environment
+                </label>
+                <select
+                  id="env"
+                  name="env"
+                  className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                  defaultValue="prod"
+                >
+                  <option value="prod">Production</option>
+                  <option value="staging">Staging</option>
+                </select>
+              </div>
 
-              {/* Only show company ID if not passed in URL or in dev mode */}
-              {(!companyIdFromUrl || isDevMode) && (
-                <div className="space-y-2">
-                  <label htmlFor="company_id" className="block text-sm font-medium">
-                    Company ID
-                  </label>
-                  <input
-                    id="company_id"
-                    name="company_id"
-                    placeholder="Company ID"
-                    value={companyId}
-                    onChange={(e) => setCompanyId(e.target.value)}
-                    className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                    required
-                  />
-                </div>
-              )}
-              {/* Hidden input for company ID if passed in URL and not in dev mode */}
-              {companyIdFromUrl && !isDevMode && <input type="hidden" name="company_id" value={companyId} />}
+              <div className="space-y-2">
+                <label htmlFor="company_id" className="block text-sm font-medium">
+                  Company ID
+                </label>
+                <input
+                  id="company_id"
+                  name="company_id"
+                  placeholder="Company ID"
+                  value={companyId}
+                  onChange={(e) => setCompanyId(e.target.value)}
+                  className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                  required
+                />
+              </div>
 
               <div className="space-y-2">
                 <label htmlFor="location_id" className="block text-sm font-medium">
@@ -395,23 +355,14 @@ export default function DashboardForm({
                   id="task_id"
                   name="task_id"
                   className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                  defaultValue={smartSafeTaskId}
                   required
                 >
                   <option value="">Select a task...</option>
-                  {/* Reorder scoutAITasks to put SmartSafe Enclosure Open first */}
-                  {[...scoutAITasks]
-                    .sort((a, b) => {
-                      // Put SmartSafe Enclosure Open first
-                      if (a.name === "SmartSafe Enclosure Open") return -1
-                      if (b.name === "SmartSafe Enclosure Open") return 1
-                      return a.name.localeCompare(b.name)
-                    })
-                    .map((task) => (
-                      <option key={task.id} value={task.id}>
-                        {task.name}
-                      </option>
-                    ))}
+                  {scoutAITasks.map((task) => (
+                    <option key={task.id} value={task.id}>
+                      {task.name}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -428,47 +379,42 @@ export default function DashboardForm({
                   required
                 />
               </div>
+
+              <div className="space-y-2">
+                <label htmlFor="limit" className="block text-sm font-medium">
+                  Images Per Page
+                </label>
+                <input
+                  id="limit"
+                  name="limit"
+                  type="number"
+                  min="1"
+                  defaultValue="12"
+                  className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                  required
+                />
+              </div>
             </div>
 
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="space-y-2">
-                  <label htmlFor="page" className="block text-sm font-medium">
-                    Page
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      id="page"
-                      name="page"
-                      type="number"
-                      min="1"
-                      defaultValue={currentPage.toString()}
-                      className="w-20 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                      required
-                    />
-                    <span className="text-sm text-gray-500 dark:text-gray-400">of {totalPages || 1}</span>
-                    {isDevMode && (
-                      <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">
-                        (API page: {currentPage - 1})
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Moved Images Per Page to be next to Page number */}
-                <div className="space-y-2">
-                  <label htmlFor="limit" className="block text-sm font-medium">
-                    Images Per Page
-                  </label>
+              <div className="space-y-2">
+                <label htmlFor="page" className="block text-sm font-medium">
+                  Page
+                </label>
+                <div className="flex items-center gap-2">
                   <input
-                    id="limit"
-                    name="limit"
+                    id="page"
+                    name="page"
                     type="number"
                     min="1"
-                    defaultValue="12"
+                    defaultValue={currentPage.toString()}
                     className="w-20 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
                     required
                   />
+                  <span className="text-sm text-gray-500 dark:text-gray-400">of {totalPages || 1}</span>
+                  {isDevMode && (
+                    <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">(API page: {currentPage - 1})</span>
+                  )}
                 </div>
               </div>
 
@@ -695,6 +641,7 @@ export default function DashboardForm({
         <button
           type="submit"
           className="w-full py-2 px-4 border border-blue-600 dark:border-blue-500 text-blue-600 dark:text-blue-400 font-medium rounded-md bg-transparent hover:bg-blue-50 dark:hover:bg-blue-900/20"
+          disabled={!selectedTask}
         >
           {inputType === "scoutai" ? "Fetch Images" : "Analyze"}
         </button>

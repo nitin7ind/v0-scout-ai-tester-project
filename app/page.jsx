@@ -1,12 +1,13 @@
 "use client"
 
-import React, { useState, useEffect, useRef } from "react"
+import React, { useState, useEffect } from "react"
 import { useTheme } from "@/components/theme-provider"
 import { fetchScoutAIImages, processImagesWithGPT, analyzeImages, fetchEventsAPI } from "@/app/actions"
 import DashboardForm from "@/components/dashboard-form"
 import PasswordModal from "@/components/password-modal"
 import Image from "next/image"
-import { Calculator, Code, Moon, Sun } from "lucide-react"
+import { Code, Moon, Sun } from "lucide-react"
+import TabNavigation from "@/components/tab-navigation"
 import CostCalculator from "@/components/cost-calculator"
 
 export default function Dashboard() {
@@ -39,9 +40,7 @@ export default function Dashboard() {
     modelUsed: "gpt",
   })
   const { theme, setTheme } = useTheme()
-  const [showCalculator, setShowCalculator] = useState(false)
-  const formRef = useRef(null)
-  const initialLoadDone = useRef(false)
+  const [activeTab, setActiveTab] = useState("playground")
 
   // Events API specific state
   const [eventsApiKey, setEventsApiKey] = useState("")
@@ -84,50 +83,6 @@ export default function Dashboard() {
     const day = String(yesterday.getDate()).padStart(2, "0")
     return `${year}-${month}-${day}`
   }
-
-  // Auto-fetch images on page load
-  useEffect(() => {
-    if (!initialLoadDone.current && formRef.current) {
-      initialLoadDone.current = true
-
-      // Set SmartSafe Enclosure Open as the default task
-      const taskIdSelect = document.getElementById("task_id")
-      if (taskIdSelect) {
-        // Find the SmartSafe Enclosure Open option
-        const smartSafeOption = Array.from(taskIdSelect.options).find(
-          (option) => option.text === "SmartSafe Enclosure Open",
-        )
-
-        if (smartSafeOption) {
-          // Set the value in the select element
-          taskIdSelect.value = smartSafeOption.value
-
-          // Submit the form after a short delay to ensure all fields are properly initialized
-          setTimeout(() => {
-            const form = formRef.current
-            if (form) {
-              const formData = new FormData(form)
-
-              // Get company ID from URL if present
-              const urlParams = new URLSearchParams(window.location.search)
-              const companyParam = urlParams.get("company")
-              if (companyParam) {
-                formData.set("company_id", companyParam)
-              }
-
-              // Explicitly set the task_id in the form data
-              formData.set("task_id", smartSafeOption.value)
-
-              // Set a default prompt to avoid validation errors
-              formData.set("prompt", "Default prompt for fetching images")
-
-              handleFormSubmit(formData)
-            }
-          }, 500)
-        }
-      }
-    }
-  }, [])
 
   // Get base URL for Events API based on environment
   const getEventsBaseUrl = () => {
@@ -224,16 +179,7 @@ export default function Dashboard() {
     setApiCall("")
     setCurlCommand("")
     setApiResponse(null)
-
-    // Store the prompt for later use in processing
-    const promptValue = formData.get("prompt") || ""
-    setPrompt(promptValue)
-
-    // Always ensure there's a prompt value for the API call
-    if (!formData.get("prompt") || formData.get("prompt").trim() === "") {
-      formData.set("prompt", "Default prompt for fetching images")
-    }
-
+    setPrompt(formData.get("prompt") || "")
     setActiveMode("scoutai")
     setSelectedModel(formData.get("model_type") || "gpt")
 
@@ -286,12 +232,6 @@ export default function Dashboard() {
   const handleProcessImages = async () => {
     if (images.length === 0) {
       setError("No images to process. Please fetch images first.")
-      return
-    }
-
-    // Ensure we have a valid prompt for processing
-    if (!prompt || prompt.trim() === "" || prompt === "Default prompt for fetching images") {
-      setError("A valid prompt is required for processing images. Please enter a prompt in the form above.")
       return
     }
 
@@ -431,11 +371,6 @@ export default function Dashboard() {
       const formData = new FormData(form)
       formData.set("page", page.toString())
 
-      // Ensure we have a prompt value for the API call
-      if (!formData.get("prompt") || formData.get("prompt").trim() === "") {
-        formData.set("prompt", "Default prompt for fetching images")
-      }
-
       handleFetchImages(formData)
     } else if (activeMode === "events") {
       // For Events API, use the events page change handler
@@ -445,36 +380,11 @@ export default function Dashboard() {
 
   // Update the handleFormSubmit function to handle the Events API option
   const handleFormSubmit = (formData) => {
-    // Store the current dev mode state
-    const currentDevMode = isDevMode
-
     const inputType = formData.get("input_type")
 
     // If switching modes, reset state
     if (inputType !== activeMode) {
       resetState(inputType)
-    }
-
-    // Ensure task_id is set for ScoutAI mode
-    if (inputType === "scoutai") {
-      const taskId = formData.get("task_id")
-      if (!taskId || taskId.trim() === "") {
-        // Try to get the SmartSafe option as a fallback
-        const taskIdSelect = document.getElementById("task_id")
-        if (taskIdSelect) {
-          const smartSafeOption = Array.from(taskIdSelect.options).find(
-            (option) => option.text === "SmartSafe Enclosure Open",
-          )
-          if (smartSafeOption) {
-            formData.set("task_id", smartSafeOption.value)
-          }
-        }
-      }
-
-      // Ensure we have a prompt value for the API call
-      if (!formData.get("prompt") || formData.get("prompt").trim() === "") {
-        formData.set("prompt", "Default prompt for fetching images")
-      }
     }
 
     if (inputType === "manual") {
@@ -497,9 +407,6 @@ export default function Dashboard() {
     } else {
       handleFetchImages(formData)
     }
-
-    // Restore dev mode state after form submission
-    setIsDevMode(currentDevMode)
   }
 
   // Validate Events API key
@@ -895,11 +802,6 @@ export default function Dashboard() {
     setSelectedModel(newModel)
   }
 
-  // Toggle calculator modal
-  const toggleCalculator = () => {
-    setShowCalculator(!showCalculator)
-  }
-
   // Get pricing information
   const pricing = calculatePricing()
 
@@ -923,7 +825,7 @@ export default function Dashboard() {
   // Effect to update locations dropdown when API key is validated
   useEffect(() => {
     if (isEventsKeyValid && activeMode === "events") {
-      // If we have a valid API key, update the form
+      // If we have a valid API key, update the form with the locations
       const locationSelect = document.getElementById("events_location")
       if (locationSelect) {
         // Populate the locations dropdown
@@ -938,6 +840,7 @@ export default function Dashboard() {
     }
   }, [isEventsKeyValid, locations, activeMode])
 
+  // Update the return statement to remove the Events API tab
   return (
     <div className="container mx-auto p-6">
       <div className="flex justify-between items-center mb-6">
@@ -946,26 +849,9 @@ export default function Dashboard() {
           <h1 className="text-2xl font-medium">Scout AI Playground</h1>
         </div>
         <div className="flex items-center gap-2">
-          {/* Calculator toggle */}
-          <button
-            className={`p-1 rounded-md border ${
-              showCalculator
-                ? "border-green-500 text-green-500"
-                : "border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400"
-            }`}
-            onClick={toggleCalculator}
-            title="Cost Calculator"
-          >
-            <Calculator size={18} />
-          </button>
-
           {/* Dev mode toggle */}
           <button
-            className={`p-1 rounded-md border ${
-              isDevMode
-                ? "border-blue-500 text-blue-500"
-                : "border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400"
-            }`}
+            className={`p-1 rounded-md border ${isDevMode ? "border-blue-500 text-blue-500" : "border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400"}`}
             onClick={toggleDevModeModal}
             title={isDevMode ? "Developer Mode Active" : "Enable Developer Mode"}
           >
@@ -979,414 +865,410 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Show calculator if toggled */}
-      {showCalculator && (
-        <div className="mb-6">
-          <CostCalculator isDevMode={isDevMode} />
-        </div>
-      )}
+      <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
 
-      <form
-        ref={formRef}
-        onSubmit={(e) => {
-          e.preventDefault()
-          const formData = new FormData(e.target)
-          handleFormSubmit(formData)
-        }}
-      >
-        <DashboardForm
-          onSubmit={handleFormSubmit}
-          currentPage={pagination.currentPage}
-          totalPages={pagination.totalPages}
-          onPageChange={handlePageChange}
-          curlCommand={curlCommand}
-          activeMode={activeMode}
-          onModeChange={(mode) => resetState(mode)}
-          onPromptChange={handlePromptChange}
-          selectedModel={selectedModel}
-          onModelChange={handleModelChange}
-          isDevMode={isDevMode}
-          // Events API specific props
-          isEventsKeyValid={isEventsKeyValid}
-          eventsApiKey={eventsApiKey}
-          eventsEnvironment={eventsEnvironment}
-          eventsLocations={locations}
-          eventsTasks={tasks}
-          eventsCameras={cameras}
-          eventsLocation={selectedLocation}
-          eventsTask={selectedTask}
-          eventsCamera={selectedCamera}
-          eventsPage={eventsPage}
-          onEventsApiValidate={(apiKey, env) => validateEventsApiKey(apiKey, env)}
-          onEventsApiReset={() => setIsEventsKeyValid(false)}
-          onEventsLocationChange={handleLocationChange}
-          onEventsTaskChange={handleTaskChange}
-          onEventsCameraChange={handleCameraChange}
-        />
-      </form>
+      {activeTab === "playground" ? (
+        <>
+          <DashboardForm
+            onSubmit={handleFormSubmit}
+            currentPage={pagination.currentPage}
+            totalPages={pagination.totalPages}
+            onPageChange={handlePageChange}
+            curlCommand={curlCommand}
+            activeMode={activeMode}
+            onModeChange={(mode) => resetState(mode)}
+            onPromptChange={handlePromptChange}
+            selectedModel={selectedModel}
+            onModelChange={handleModelChange}
+            isDevMode={isDevMode}
+            // Events API specific props
+            isEventsKeyValid={isEventsKeyValid}
+            eventsApiKey={eventsApiKey}
+            eventsEnvironment={eventsEnvironment}
+            eventsLocations={locations}
+            eventsTasks={tasks}
+            eventsCameras={cameras}
+            eventsLocation={selectedLocation}
+            eventsTask={selectedTask}
+            eventsCamera={selectedCamera}
+            eventsPage={eventsPage}
+            onEventsApiValidate={(apiKey, env) => validateEventsApiKey(apiKey, env)}
+            onEventsApiReset={() => setIsEventsKeyValid(false)}
+            onEventsLocationChange={handleLocationChange}
+            onEventsTaskChange={handleTaskChange}
+            onEventsCameraChange={handleCameraChange}
+          />
 
-      {/* Rest of the playground content... */}
-      {isLoading && (
-        <div className="mt-6 text-center">
-          <div className="flex items-center justify-center gap-2">
-            <div className="animate-spin h-5 w-5 border-2 border-blue-500 rounded-full border-t-transparent"></div>
-            <p className="text-gray-500 dark:text-gray-400">
-              {activeMode === "scoutai"
-                ? "Fetching images..."
-                : activeMode === "events"
-                  ? "Fetching events..."
-                  : "Processing image..."}
-            </p>
-          </div>
-        </div>
-      )}
+          {/* Rest of the playground content... */}
+          {isLoading && (
+            <div className="mt-6 text-center">
+              <div className="flex items-center justify-center gap-2">
+                <div className="animate-spin h-5 w-5 border-2 border-blue-500 rounded-full border-t-transparent"></div>
+                <p className="text-gray-500 dark:text-gray-400">
+                  {activeMode === "scoutai"
+                    ? "Fetching images..."
+                    : activeMode === "events"
+                      ? "Fetching events..."
+                      : "Processing image..."}
+                </p>
+              </div>
+            </div>
+          )}
 
-      {/* Error display */}
-      {error && (
-        <div className="mt-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-red-600 dark:text-red-400">
-          <h3 className="font-medium mb-2">Error</h3>
-          <p>{error}</p>
+          {/* Error display */}
+          {error && (
+            <div className="mt-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-red-600 dark:text-red-400">
+              <h3 className="font-medium mb-2">Error</h3>
+              <p>{error}</p>
 
-          {isDevMode && apiResponse && (
-            <div className="mt-4">
-              <p className="font-medium">API Response:</p>
-              <div className="mt-2 p-2 bg-gray-100 dark:bg-gray-800 rounded-md overflow-x-auto text-xs">
+              {isDevMode && apiResponse && (
+                <div className="mt-4">
+                  <p className="font-medium">API Response:</p>
+                  <div className="mt-2 p-2 bg-gray-100 dark:bg-gray-800 rounded-md overflow-x-auto text-xs">
+                    <div>
+                      <strong>Status:</strong> {apiResponse.status || "N/A"}
+                      {apiResponse.message !== undefined && (
+                        <div>
+                          <strong>Message:</strong> {apiResponse.message}
+                        </div>
+                      )}
+                    </div>
+
+                    {apiResponse.data && (
+                      <div className="mt-2">
+                        <div>
+                          <strong>Images:</strong> {apiResponse.data.data?.length || 0}
+                        </div>
+                        <div>
+                          <strong>Total:</strong> {apiResponse.data.total || "N/A"}
+                        </div>
+                      </div>
+                    )}
+
+                    <details className="mt-2">
+                      <summary className="cursor-pointer text-blue-600 dark:text-blue-400">View Full Response</summary>
+                      <pre className="mt-2">{JSON.stringify(apiResponse, null, 2)}</pre>
+                    </details>
+                  </div>
+                </div>
+              )}
+
+              {isDevMode && (
+                <div className="mt-4">
+                  <h4 className="font-medium mb-1">Troubleshooting Tips:</h4>
+                  <ul className="list-disc pl-5 text-sm">
+                    <li>Verify your Company ID and Task ID are correct</li>
+                    <li>Check that the date is valid and has images available</li>
+                    <li>Try a different page number if available</li>
+                    <li>Check the console logs for more detailed error information</li>
+                    <li>Ensure your API keys are valid and have sufficient credits</li>
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Display processing stats if available - only in dev mode */}
+          {stats.processedCount > 0 && isDevMode && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6 mt-6">
+              <h3 className="text-lg font-medium mb-2">Processing Summary</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <strong>Status:</strong> {apiResponse.status || "N/A"}
-                  {apiResponse.message !== undefined && (
-                    <div>
-                      <strong>Message:</strong> {apiResponse.message}
-                    </div>
-                  )}
-                </div>
-
-                {apiResponse.data && (
-                  <div className="mt-2">
-                    <div>
-                      <strong>Images:</strong> {apiResponse.data.data?.length || 0}
-                    </div>
-                    <div>
-                      <strong>Total:</strong> {apiResponse.data.total || "N/A"}
-                    </div>
-                  </div>
-                )}
-
-                <details className="mt-2">
-                  <summary className="cursor-pointer text-blue-600 dark:text-blue-400">View Full Response</summary>
-                  <pre className="mt-2">{JSON.stringify(apiResponse, null, 2)}</pre>
-                </details>
-              </div>
-            </div>
-          )}
-
-          {isDevMode && (
-            <div className="mt-4">
-              <h4 className="font-medium mb-1">Troubleshooting Tips:</h4>
-              <ul className="list-disc pl-5 text-sm">
-                <li>Verify your Company ID and Task ID are correct</li>
-                <li>Check that the date is valid and has images available</li>
-                <li>Try a different page number if available</li>
-                <li>Check the console logs for more detailed error information</li>
-                <li>Ensure your API keys are valid and have sufficient credits</li>
-              </ul>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Display processing stats if available - only in dev mode */}
-      {stats.processedCount > 0 && isDevMode && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6 mt-6">
-          <h3 className="text-lg font-medium mb-2">Processing Summary</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <p>
-                <strong>Images processed:</strong> {stats.processedCount} of {stats.totalFetched}
-              </p>
-              <p>
-                <strong>Model used:</strong> {getFriendlyModelName(stats.modelUsed)}
-              </p>
-            </div>
-            <div>
-              <p>
-                <strong>Token usage:</strong> {stats.totalTokens.toLocaleString()} (Prompt:{" "}
-                {stats.promptTokens.toLocaleString()}, Completion: {stats.completionTokens.toLocaleString()})
-              </p>
-            </div>
-          </div>
-
-          {/* Pricing information */}
-          <div className="mt-2 p-3 bg-gray-50 dark:bg-gray-700 rounded-md">
-            <h4 className="text-sm font-medium mb-1">Estimated Cost</h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm">
-              <div>
-                <p>Input: ${pricing.inputCost}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  (${stats.modelUsed === "gemini" ? "0.15" : "0.40"} / 1M tokens)
-                </p>
-              </div>
-              <div>
-                <p>Output: ${pricing.outputCost}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  (${stats.modelUsed === "gemini" ? "0.60" : "1.60"} / 1M tokens)
-                </p>
-              </div>
-              <div>
-                <p className="font-medium">Total: ${pricing.totalCost}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-4">
-            <button
-              onClick={() => handleDownload("json")}
-              className="px-3 py-1 bg-purple-600 text-white rounded-md hover:bg-purple-700 mr-2"
-            >
-              Download JSON
-            </button>
-            <button
-              onClick={() => handleDownload("csv")}
-              className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700"
-            >
-              Download CSV
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Display ScoutAI or Events API images and Process button */}
-      {(activeMode === "scoutai" || activeMode === "events") && images.length > 0 && !isLoading && (
-        <div className="mt-6">
-          <div className="flex justify-between items-center mb-4">
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl font-medium">
-                {activeMode === "events" ? "Events" : "Images"} ({images.length})
-                {pagination && pagination.totalCount > 0 && (
-                  <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">
-                    Page {pagination.currentPage} of {pagination.totalPages} ({pagination.totalCount} total)
-                  </span>
-                )}
-              </h2>
-
-              {/* Select all checkbox */}
-              <div className="ml-4 flex items-center">
-                <input
-                  type="checkbox"
-                  id="select-all"
-                  checked={selectedImages.length === images.length && images.length > 0}
-                  onChange={toggleAllImages}
-                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <label htmlFor="select-all" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                  Select All
-                </label>
-                {selectedImages.length > 0 && (
-                  <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
-                    ({selectedImages.length} selected)
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              {/* Process with selected model button - only show when images are selected */}
-              {!isProcessing && selectedImages.length > 0 && (
-                <button
-                  onClick={handleProcessImages}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                >
-                  Process {selectedImages.length} Selected
-                  {isDevMode ? ` with ${getFriendlyModelName(selectedModel)}` : ""}
-                </button>
-              )}
-
-              {/* Pagination controls */}
-              {pagination && pagination.totalPages > 1 && (
-                <div className="flex items-center gap-2 ml-4">
-                  <button
-                    className="px-3 py-1 border rounded-md text-sm flex items-center disabled:opacity-50"
-                    onClick={() => handlePageChange(pagination.currentPage - 1)}
-                    disabled={pagination.currentPage <= 1 || isLoading || isProcessing}
-                  >
-                    ← Previous
-                  </button>
-                  <span className="text-sm">
-                    Page {pagination.currentPage} of {pagination.totalPages}
-                  </span>
-                  <button
-                    className="px-3 py-1 border rounded-md text-sm flex items-center disabled:opacity-50"
-                    onClick={() => handlePageChange(pagination.currentPage + 1)}
-                    disabled={pagination.currentPage >= pagination.totalPages || isLoading || isProcessing}
-                  >
-                    Next →
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Image grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-            {images.map((item, index) => {
-              // Find the corresponding result if it exists
-              const result = results.find((r) => r.image === item.image) || {}
-              // Merge the result with the original item to preserve selection state
-              const displayItem = { ...item, ...result }
-
-              return (
-                <div
-                  key={index}
-                  className={`bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden ${
-                    displayItem.error ? "border-red-300 dark:border-red-700 border-2" : ""
-                  } ${selectedImages.includes(index) ? "ring-2 ring-blue-500" : ""}`}
-                >
-                  <div className="relative w-full h-48 cursor-pointer" onClick={() => toggleImageSelection(index)}>
-                    {/* Serial number badge */}
-                    <div className="absolute top-2 left-2 bg-black bg-opacity-70 text-white px-2 py-1 rounded-md text-xs font-medium z-10">
-                      #{displayItem.serialNumber}
-                    </div>
-
-                    {/* Selection checkbox */}
-                    <div className="absolute top-2 right-2 z-10" onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="checkbox"
-                        checked={selectedImages.includes(index)}
-                        onChange={() => toggleImageSelection(index)}
-                        className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                    </div>
-
-                    {displayItem.image && displayItem.image.startsWith("http") ? (
-                      <Image
-                        src={displayItem.image || "/placeholder.svg"}
-                        alt={`Image ${displayItem.serialNumber}`}
-                        fill
-                        className="object-fill"
-                        unoptimized
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-700">
-                        <p className="text-sm text-gray-500 dark:text-gray-400">{displayItem.image || "No image"}</p>
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-4">
-                    {/* Show event details if available */}
-                    {displayItem.eventData && false && (
-                      <div className="mb-2">
-                        <p className="text-sm font-medium">{displayItem.eventData.title || "Event"}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {new Date(displayItem.eventData.createdAt).toLocaleString()}
-                        </p>
-                        {displayItem.eventData.metadata && (
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            {displayItem.eventData.metadata.location || displayItem.eventData.metadata.locationId || ""}
-                          </p>
-                        )}
-                      </div>
-                    )}
-
-                    {displayItem.processed ? (
-                      <>
-                        <p className="text-sm">
-                          <strong>Label:</strong> {displayItem.label}
-                        </p>
-                        {displayItem.modelUsed && isDevMode && (
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            Processed with: {getFriendlyModelName(displayItem.modelUsed)}
-                          </p>
-                        )}
-                      </>
-                    ) : (
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Not processed yet</p>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-
-          {/* Bottom pagination controls */}
-          {pagination && pagination.totalPages > 1 && (
-            <div className="flex justify-center mt-6">
-              <div className="flex items-center gap-2">
-                <button
-                  className="px-3 py-1 border rounded-md text-sm flex items-center disabled:opacity-50"
-                  onClick={() => handlePageChange(pagination.currentPage - 1)}
-                  disabled={pagination.currentPage <= 1 || isLoading || isProcessing}
-                >
-                  ← Previous
-                </button>
-                <span className="text-sm">
-                  Page {pagination.currentPage} of {pagination.totalPages}
-                </span>
-                <button
-                  className="px-3 py-1 border rounded-md text-sm flex items-center disabled:opacity-50"
-                  onClick={() => handlePageChange(pagination.currentPage + 1)}
-                  disabled={pagination.currentPage >= pagination.totalPages || isLoading || isProcessing}
-                >
-                  Next →
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Show manual results if any */}
-      {activeMode === "manual" && results.length > 0 && !isLoading && (
-        <div className="mt-6">
-          <h2 className="text-xl font-medium mb-4">Manual Upload Results</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-            {results.map((item, index) => (
-              <div
-                key={index}
-                className={`bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden ${
-                  item.error ? "border-red-300 dark:border-red-700 border-2" : ""
-                }`}
-              >
-                <div className="relative w-full h-48">
-                  {item.objectURL ? (
-                    // Display uploaded file using object URL
-                    <Image
-                      src={item.objectURL || "/placeholder.svg"}
-                      alt={`Uploaded Image ${index + 1}`}
-                      fill
-                      className="object-cover"
-                      unoptimized
-                    />
-                  ) : item.image && item.image.startsWith("http") ? (
-                    // Display image from URL
-                    <Image
-                      src={item.image || "/placeholder.svg"}
-                      alt={`Image ${index + 1}`}
-                      fill
-                      className="object-cover"
-                      unoptimized
-                    />
-                  ) : (
-                    // Fallback display
-                    <div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-700">
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {item.isUploadedFile ? `Uploaded: ${item.image}` : item.image || "Uploaded Image"}
-                      </p>
-                    </div>
-                  )}
-                </div>
-                <div className="p-4">
-                  <p className="text-sm">
-                    <strong>Label:</strong> {item.label}
+                  <p>
+                    <strong>Images processed:</strong> {stats.processedCount} of {stats.totalFetched}
                   </p>
-                  {item.modelUsed && isDevMode && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      Processed with: {getFriendlyModelName(item.modelUsed)}
+                  <p>
+                    <strong>Model used:</strong> {getFriendlyModelName(stats.modelUsed)}
+                  </p>
+                </div>
+                <div>
+                  <p>
+                    <strong>Token usage:</strong> {stats.totalTokens.toLocaleString()} (Prompt:{" "}
+                    {stats.promptTokens.toLocaleString()}, Completion: {stats.completionTokens.toLocaleString()})
+                  </p>
+                </div>
+              </div>
+
+              {/* Pricing information */}
+              <div className="mt-2 p-3 bg-gray-50 dark:bg-gray-700 rounded-md">
+                <h4 className="text-sm font-medium mb-1">Estimated Cost</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm">
+                  <div>
+                    <p>Input: ${pricing.inputCost}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      (${stats.modelUsed === "gemini" ? "0.15" : "0.40"} / 1M tokens)
                     </p>
+                  </div>
+                  <div>
+                    <p>Output: ${pricing.outputCost}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      (${stats.modelUsed === "gemini" ? "0.60" : "1.60"} / 1M tokens)
+                    </p>
+                  </div>
+                  <div>
+                    <p className="font-medium">Total: ${pricing.totalCost}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <button
+                  onClick={() => handleDownload("json")}
+                  className="px-3 py-1 bg-purple-600 text-white rounded-md hover:bg-purple-700 mr-2"
+                >
+                  Download JSON
+                </button>
+                <button
+                  onClick={() => handleDownload("csv")}
+                  className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700"
+                >
+                  Download CSV
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Display ScoutAI or Events API images and Process button */}
+          {(activeMode === "scoutai" || activeMode === "events") && images.length > 0 && !isLoading && (
+            <div className="mt-6">
+              <div className="flex justify-between items-center mb-4">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-xl font-medium">
+                    {activeMode === "events" ? "Events" : "Images"} ({images.length})
+                    {pagination && pagination.totalCount > 0 && (
+                      <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">
+                        Page {pagination.currentPage} of {pagination.totalPages} ({pagination.totalCount} total)
+                      </span>
+                    )}
+                  </h2>
+
+                  {/* Select all checkbox */}
+                  <div className="ml-4 flex items-center">
+                    <input
+                      type="checkbox"
+                      id="select-all"
+                      checked={selectedImages.length === images.length && images.length > 0}
+                      onChange={toggleAllImages}
+                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <label htmlFor="select-all" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                      Select All
+                    </label>
+                    {selectedImages.length > 0 && (
+                      <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                        ({selectedImages.length} selected)
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {/* Process with selected model button - only show when images are selected */}
+                  {!isProcessing && selectedImages.length > 0 && (
+                    <button
+                      onClick={handleProcessImages}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                    >
+                      Process {selectedImages.length} Selected
+                      {isDevMode ? ` with ${getFriendlyModelName(selectedModel)}` : ""}
+                    </button>
+                  )}
+
+                  {/* Pagination controls */}
+                  {pagination && pagination.totalPages > 1 && (
+                    <div className="flex items-center gap-2 ml-4">
+                      <button
+                        className="px-3 py-1 border rounded-md text-sm flex items-center disabled:opacity-50"
+                        onClick={() => handlePageChange(pagination.currentPage - 1)}
+                        disabled={pagination.currentPage <= 1 || isLoading || isProcessing}
+                      >
+                        ← Previous
+                      </button>
+                      <span className="text-sm">
+                        Page {pagination.currentPage} of {pagination.totalPages}
+                      </span>
+                      <button
+                        className="px-3 py-1 border rounded-md text-sm flex items-center disabled:opacity-50"
+                        onClick={() => handlePageChange(pagination.currentPage + 1)}
+                        disabled={pagination.currentPage >= pagination.totalPages || isLoading || isProcessing}
+                      >
+                        Next →
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
+
+              {/* Image grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                {images.map((item, index) => {
+                  // Find the corresponding result if it exists
+                  const result = results.find((r) => r.image === item.image) || {}
+                  // Merge the result with the original item to preserve selection state
+                  const displayItem = { ...item, ...result }
+
+                  return (
+                    <div
+                      key={index}
+                      className={`bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden ${
+                        displayItem.error ? "border-red-300 dark:border-red-700 border-2" : ""
+                      } ${selectedImages.includes(index) ? "ring-2 ring-blue-500" : ""}`}
+                    >
+                      <div className="relative w-full h-48 cursor-pointer" onClick={() => toggleImageSelection(index)}>
+                        {/* Serial number badge */}
+                        <div className="absolute top-2 left-2 bg-black bg-opacity-70 text-white px-2 py-1 rounded-md text-xs font-medium z-10">
+                          #{displayItem.serialNumber}
+                        </div>
+
+                        {/* Selection checkbox */}
+                        <div className="absolute top-2 right-2 z-10" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={selectedImages.includes(index)}
+                            onChange={() => toggleImageSelection(index)}
+                            className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                        </div>
+
+                        {displayItem.image && displayItem.image.startsWith("http") ? (
+                          <Image
+                            src={displayItem.image || "/placeholder.svg"}
+                            alt={`Image ${displayItem.serialNumber}`}
+                            fill
+                            className="object-fill"
+                            unoptimized
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-700">
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                              {displayItem.image || "No image"}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                      <div className="p-4">
+                        {/* Show event details if available */}
+                        {displayItem.eventData && false && (
+                          <div className="mb-2">
+                            <p className="text-sm font-medium">{displayItem.eventData.title || "Event"}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              {new Date(displayItem.eventData.createdAt).toLocaleString()}
+                            </p>
+                            {displayItem.eventData.metadata && (
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                {displayItem.eventData.metadata.location ||
+                                  displayItem.eventData.metadata.locationId ||
+                                  ""}
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        {displayItem.processed ? (
+                          <>
+                            <p className="text-sm">
+                              <strong>Label:</strong> {displayItem.label}
+                            </p>
+                            {displayItem.modelUsed && isDevMode && (
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                Processed with: {getFriendlyModelName(displayItem.modelUsed)}
+                              </p>
+                            )}
+                          </>
+                        ) : (
+                          <p className="text-sm text-gray-500 dark:text-gray-400">Not processed yet</p>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Bottom pagination controls */}
+              {pagination && pagination.totalPages > 1 && (
+                <div className="flex justify-center mt-6">
+                  <div className="flex items-center gap-2">
+                    <button
+                      className="px-3 py-1 border rounded-md text-sm flex items-center disabled:opacity-50"
+                      onClick={() => handlePageChange(pagination.currentPage - 1)}
+                      disabled={pagination.currentPage <= 1 || isLoading || isProcessing}
+                    >
+                      ← Previous
+                    </button>
+                    <span className="text-sm">
+                      Page {pagination.currentPage} of {pagination.totalPages}
+                    </span>
+                    <button
+                      className="px-3 py-1 border rounded-md text-sm flex items-center disabled:opacity-50"
+                      onClick={() => handlePageChange(pagination.currentPage + 1)}
+                      disabled={pagination.currentPage >= pagination.totalPages || isLoading || isProcessing}
+                    >
+                      Next →
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Show manual results if any */}
+          {activeMode === "manual" && results.length > 0 && !isLoading && (
+            <div className="mt-6">
+              <h2 className="text-xl font-medium mb-4">Manual Upload Results</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                {results.map((item, index) => (
+                  <div
+                    key={index}
+                    className={`bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden ${
+                      item.error ? "border-red-300 dark:border-red-700 border-2" : ""
+                    }`}
+                  >
+                    <div className="relative w-full h-48">
+                      {item.objectURL ? (
+                        // Display uploaded file using object URL
+                        <Image
+                          src={item.objectURL || "/placeholder.svg"}
+                          alt={`Uploaded Image ${index + 1}`}
+                          fill
+                          className="object-cover"
+                          unoptimized
+                        />
+                      ) : item.image && item.image.startsWith("http") ? (
+                        // Display image from URL
+                        <Image
+                          src={item.image || "/placeholder.svg"}
+                          alt={`Image ${index + 1}`}
+                          fill
+                          className="object-cover"
+                          unoptimized
+                        />
+                      ) : (
+                        // Fallback display
+                        <div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-700">
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                            {item.isUploadedFile ? `Uploaded: ${item.image}` : item.image || "Uploaded Image"}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-4">
+                      <p className="text-sm">
+                        <strong>Label:</strong> {item.label}
+                      </p>
+                      {item.modelUsed && isDevMode && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          Processed with: {getFriendlyModelName(item.modelUsed)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        <CostCalculator isDevMode={isDevMode} />
       )}
 
       {/* Password modal for dev mode */}
