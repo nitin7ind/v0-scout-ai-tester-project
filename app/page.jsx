@@ -9,6 +9,25 @@ import Image from "next/image"
 import { Calculator, Code, Moon, Sun } from "lucide-react"
 import CostCalculator from "@/components/cost-calculator"
 
+// Helper function to sanitize error messages for display
+function sanitizeErrorMessage(message) {
+  // If we're not in dev mode, or if the message is already the generic one, return it
+  if (message === "Something went wrong. Please try again.") {
+    return message
+  }
+
+  // Check for API-specific error patterns
+  const containsApiDetails = /gemini|googlegenerat|generativelanguage|openai|gpt|api key|503 service|unavailable/i.test(
+    message,
+  )
+
+  if (containsApiDetails) {
+    return "Something went wrong. Please try again."
+  }
+
+  return message
+}
+
 export default function Dashboard() {
   const [images, setImages] = useState([])
   const [results, setResults] = useState([])
@@ -319,6 +338,19 @@ export default function Dashboard() {
         return
       }
 
+      // Sanitize any error messages in the results
+      if (response.results && !isDevMode) {
+        response.results = response.results.map((item) => {
+          if (item.error) {
+            return {
+              ...item,
+              label: sanitizeErrorMessage(item.label),
+            }
+          }
+          return item
+        })
+      }
+
       // Update state with response data - but keep the original images array
       // This ensures we don't lose the selection state
       setResults(response.results || [])
@@ -374,6 +406,19 @@ export default function Dashboard() {
         setError(isDevMode ? response.error : "Something went wrong. Please try again.")
         console.error("Error returned from analyzeImages:", response.error)
         return
+      }
+
+      // Sanitize any error messages in the results
+      if (response.results && !isDevMode) {
+        response.results = response.results.map((item) => {
+          if (item.error) {
+            return {
+              ...item,
+              label: sanitizeErrorMessage(item.label),
+            }
+          }
+          return item
+        })
       }
 
       // Update state with response data
@@ -1206,6 +1251,12 @@ export default function Dashboard() {
               // Merge the result with the original item to preserve selection state
               const displayItem = { ...item, ...result }
 
+              // Sanitize error messages for non-dev mode
+              let displayLabel = displayItem.label
+              if (!isDevMode && displayItem.error) {
+                displayLabel = sanitizeErrorMessage(displayLabel)
+              }
+
               return (
                 <div
                   key={index}
@@ -1263,9 +1314,9 @@ export default function Dashboard() {
                       <>
                         <p className="text-sm">
                           <strong>Label:</strong>{" "}
-                          {displayItem.error && isDevMode && displayItem.detailedError
+                          {isDevMode && displayItem.error && displayItem.detailedError
                             ? displayItem.detailedError
-                            : displayItem.label}
+                            : displayLabel}
                         </p>
                         {displayItem.modelUsed && isDevMode && (
                           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -1316,54 +1367,62 @@ export default function Dashboard() {
         <div className="mt-6">
           <h2 className="text-xl font-medium mb-4">Manual Upload Results</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-            {results.map((item, index) => (
-              <div
-                key={index}
-                className={`bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden ${
-                  item.error ? "border-red-300 dark:border-red-700 border-2" : ""
-                }`}
-              >
-                <div className="relative w-full h-60">
-                  {item.objectURL ? (
-                    // Display uploaded file using object URL
-                    <Image
-                      src={item.objectURL || "/placeholder.svg"}
-                      alt={`Uploaded Image ${index + 1}`}
-                      fill
-                      className="object-cover"
-                      unoptimized
-                    />
-                  ) : item.image && item.image.startsWith("http") ? (
-                    // Display image from URL
-                    <Image
-                      src={item.image || "/placeholder.svg"}
-                      alt={`Image ${index + 1}`}
-                      fill
-                      className="object-cover"
-                      unoptimized
-                    />
-                  ) : (
-                    // Fallback display
-                    <div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-700">
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {item.isUploadedFile ? `Uploaded: ${item.image}` : item.image || "Uploaded Image"}
-                      </p>
-                    </div>
-                  )}
-                </div>
-                <div className="p-4">
-                  <p className="text-sm">
-                    <strong>Label:</strong>{" "}
-                    {item.error && isDevMode && item.detailedError ? item.detailedError : item.label}
-                  </p>
-                  {item.modelUsed && isDevMode && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      Processed with: {getFriendlyModelName(item.modelUsed)}
+            {results.map((item, index) => {
+              // Sanitize error messages for non-dev mode
+              let displayLabel = item.label
+              if (!isDevMode && item.error) {
+                displayLabel = sanitizeErrorMessage(displayLabel)
+              }
+
+              return (
+                <div
+                  key={index}
+                  className={`bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden ${
+                    item.error ? "border-red-300 dark:border-red-700 border-2" : ""
+                  }`}
+                >
+                  <div className="relative w-full h-60">
+                    {item.objectURL ? (
+                      // Display uploaded file using object URL
+                      <Image
+                        src={item.objectURL || "/placeholder.svg"}
+                        alt={`Uploaded Image ${index + 1}`}
+                        fill
+                        className="object-cover"
+                        unoptimized
+                      />
+                    ) : item.image && item.image.startsWith("http") ? (
+                      // Display image from URL
+                      <Image
+                        src={item.image || "/placeholder.svg"}
+                        alt={`Image ${index + 1}`}
+                        fill
+                        className="object-cover"
+                        unoptimized
+                      />
+                    ) : (
+                      // Fallback display
+                      <div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-700">
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          {item.isUploadedFile ? `Uploaded: ${item.image}` : item.image || "Uploaded Image"}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-4">
+                    <p className="text-sm">
+                      <strong>Label:</strong>{" "}
+                      {isDevMode && item.error && item.detailedError ? item.detailedError : displayLabel}
                     </p>
-                  )}
+                    {item.modelUsed && isDevMode && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Processed with: {getFriendlyModelName(item.modelUsed)}
+                      </p>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}

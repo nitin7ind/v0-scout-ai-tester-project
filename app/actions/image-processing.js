@@ -12,6 +12,16 @@ const openai = new OpenAI({
 // Initialize Google Generative AI client
 const googleAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || "")
 
+// Helper function to sanitize error messages for user display
+function sanitizeErrorMessage(error) {
+  // Store the original error for logging
+  const originalError = error instanceof Error ? error.message : String(error)
+  console.error("Original error:", originalError)
+
+  // Return a generic error message
+  return "Something went wrong. Please try again."
+}
+
 // Step 2: Process images with selected AI model
 export async function processImagesWithGPT(
   images,
@@ -106,7 +116,7 @@ export async function processImagesWithGPT(
           const errorImage = {
             ...imageToProcess,
             processed: true,
-            label: `Something went wrong. Please try again.`,
+            label: sanitizeErrorMessage(error),
             error: true,
             modelUsed: modelType,
             // Store the detailed error message in a separate property that will only be used in dev mode
@@ -145,7 +155,7 @@ export async function processImagesWithGPT(
   } catch (error) {
     console.error("Unhandled error in processImagesWithGPT:", error)
     return {
-      error: `An unexpected error occurred. Please try again.`,
+      error: sanitizeErrorMessage(error),
       results: [],
     }
   }
@@ -160,7 +170,7 @@ export async function getLabelFromImageUrlWithGPT(imageUrl, prompt) {
     if (!imgResponse.ok) {
       const errorText = await imgResponse.text()
       console.error(`Failed to fetch image (${imgResponse.status}): ${errorText}`)
-      throw new Error(`Something went wrong. Please try again.`)
+      throw new Error(sanitizeErrorMessage("Failed to fetch image"))
     }
 
     const arrayBuffer = await imgResponse.arrayBuffer()
@@ -172,7 +182,7 @@ export async function getLabelFromImageUrlWithGPT(imageUrl, prompt) {
     return await callGpt(prompt, imageDataUri, imageUrl)
   } catch (error) {
     console.error("Error processing image URL with GPT:", error)
-    throw new Error(`Something went wrong. Please try again.`)
+    throw new Error(sanitizeErrorMessage(error))
   }
 }
 
@@ -185,7 +195,7 @@ export async function getLabelFromImageUrlWithGemini(imageUrl, prompt) {
     if (!imgResponse.ok) {
       const errorText = await imgResponse.text()
       console.error(`Failed to fetch image (${imgResponse.status}): ${errorText}`)
-      throw new Error(`Something went wrong. Please try again.`)
+      throw new Error(sanitizeErrorMessage("Failed to fetch image"))
     }
 
     const arrayBuffer = await imgResponse.arrayBuffer()
@@ -196,7 +206,7 @@ export async function getLabelFromImageUrlWithGemini(imageUrl, prompt) {
     return await callGemini(prompt, base64Image, imageUrl)
   } catch (error) {
     console.error("Error processing image URL with Gemini:", error)
-    throw new Error(`Something went wrong. Please try again.`)
+    throw new Error(sanitizeErrorMessage(error))
   }
 }
 
@@ -240,7 +250,7 @@ export async function callGpt(prompt, imageDataUri, imageSource) {
     }
   } catch (error) {
     console.error("Error calling GPT:", error)
-    throw new Error(`Something went wrong. Please try again.`)
+    throw new Error(sanitizeErrorMessage(error))
   }
 }
 
@@ -252,7 +262,7 @@ export async function callGemini(prompt, base64Image, imageSource) {
 
     // Check if API key is available
     if (!process.env.GOOGLE_API_KEY) {
-      throw new Error("Something went wrong. Please try again.")
+      throw new Error(sanitizeErrorMessage("API key not available"))
     }
 
     // Get the Gemini model
@@ -303,6 +313,6 @@ export async function callGemini(prompt, base64Image, imageSource) {
   } catch (error) {
     console.error("Error calling Gemini:", error)
     // Always throw a generic error message to avoid exposing API details
-    throw new Error(`Something went wrong. Please try again.`)
+    throw new Error(sanitizeErrorMessage(error))
   }
 }

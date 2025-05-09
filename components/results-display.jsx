@@ -3,7 +3,35 @@
 import Image from "next/image"
 import { useState } from "react"
 
-export default function ResultsDisplay({ results, stats, onDownload, pagination, onPageChange, apiCall, apiResponse }) {
+// Helper function to sanitize error messages for display
+function sanitizeErrorMessage(message) {
+  // If we're not in dev mode, or if the message is already the generic one, return it
+  if (message === "Something went wrong. Please try again.") {
+    return message
+  }
+
+  // Check for API-specific error patterns
+  const containsApiDetails = /gemini|googlegenerat|generativelanguage|openai|gpt|api key|503 service|unavailable/i.test(
+    message,
+  )
+
+  if (containsApiDetails) {
+    return "Something went wrong. Please try again."
+  }
+
+  return message
+}
+
+export default function ResultsDisplay({
+  results,
+  stats,
+  onDownload,
+  pagination,
+  onPageChange,
+  apiCall,
+  apiResponse,
+  isDevMode = false,
+}) {
   const totalCount = stats.totalCount || stats.totalFetched
   const [showApiResponse, setShowApiResponse] = useState(false)
 
@@ -140,40 +168,48 @@ export default function ResultsDisplay({ results, stats, onDownload, pagination,
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
         {results.length > 0 ? (
-          results.map((item, index) => (
-            <div
-              key={index}
-              className={`bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden ${
-                item.error ? "border-red-300 dark:border-red-700 border-2" : ""
-              }`}
-            >
-              <div className="relative w-full h-60">
-                {item.image && item.image.startsWith("http") ? (
-                  <Image
-                    src={item.image || "/placeholder.svg"}
-                    alt={`Image ${index + 1}`}
-                    fill
-                    className="object-contain" // Changed from object-fill to object-contain
-                    unoptimized
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-700">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">{item.image || "No image"}</p>
-                  </div>
-                )}
-              </div>
-              <div className="p-4">
-                <p className="text-sm">
-                  <strong>Label:</strong> {item.label}
-                </p>
-                {item.tokens && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                    Tokens: {item.tokens.total} (Prompt: {item.tokens.prompt}, Completion: {item.tokens.completion})
+          results.map((item, index) => {
+            // Sanitize error messages for non-dev mode
+            let displayLabel = item.label
+            if (!isDevMode && item.error) {
+              displayLabel = sanitizeErrorMessage(displayLabel)
+            }
+
+            return (
+              <div
+                key={index}
+                className={`bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden ${
+                  item.error ? "border-red-300 dark:border-red-700 border-2" : ""
+                }`}
+              >
+                <div className="relative w-full h-60">
+                  {item.image && item.image.startsWith("http") ? (
+                    <Image
+                      src={item.image || "/placeholder.svg"}
+                      alt={`Image ${index + 1}`}
+                      fill
+                      className="object-contain" // Changed from object-fill to object-contain
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-700">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{item.image || "No image"}</p>
+                    </div>
+                  )}
+                </div>
+                <div className="p-4">
+                  <p className="text-sm">
+                    <strong>Label:</strong> {displayLabel}
                   </p>
-                )}
+                  {item.tokens && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                      Tokens: {item.tokens.total} (Prompt: {item.tokens.prompt}, Completion: {item.tokens.completion})
+                    </p>
+                  )}
+                </div>
               </div>
-            </div>
-          ))
+            )
+          })
         ) : (
           <p className="col-span-3 text-center text-gray-500 dark:text-gray-400 py-8">No results to display</p>
         )}
