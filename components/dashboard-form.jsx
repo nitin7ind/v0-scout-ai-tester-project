@@ -106,7 +106,7 @@ export default function DashboardForm({
   }, [prompt, onPromptChange])
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
+    e.preventDefault() // Ensure this is always called
     const form = e.currentTarget
     const formData = new FormData(form)
 
@@ -134,7 +134,10 @@ export default function DashboardForm({
       }
     }
 
-    await onSubmit(formData)
+    // Call the onSubmit prop function with the formData
+    if (onSubmit) {
+      await onSubmit(formData)
+    }
   }
 
   // Handle input type change
@@ -164,7 +167,7 @@ export default function DashboardForm({
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
-      <form onSubmit={handleSubmit} className="space-y-4" method="post">
+      <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
           <label htmlFor="task" className="block text-sm font-medium">
             Select Prompt

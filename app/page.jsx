@@ -923,7 +923,7 @@ export default function Dashboard() {
   // Effect to update locations dropdown when API key is validated
   useEffect(() => {
     if (isEventsKeyValid && activeMode === "events") {
-      // If we have a valid API key, update the form with the locations
+      // If we have a valid API key, update the form
       const locationSelect = document.getElementById("events_location")
       if (locationSelect) {
         // Populate the locations dropdown
@@ -990,7 +990,8 @@ export default function Dashboard() {
         ref={formRef}
         onSubmit={(e) => {
           e.preventDefault()
-          handleFormSubmit(new FormData(e.target))
+          const formData = new FormData(e.target)
+          handleFormSubmit(formData)
         }}
         method="post"
       >
