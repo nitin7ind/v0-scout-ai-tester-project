@@ -219,7 +219,7 @@ export default function Dashboard() {
 
       // Check for errors
       if (response.error) {
-        setError(response.error)
+        setError(isDevMode ? response.error : "Something went wrong. Please try again.")
         console.error("Error returned from fetchScoutAIImages:", response.error)
         return
       }
@@ -246,12 +246,18 @@ export default function Dashboard() {
       // Show error if no images were fetched
       if (!response.images || response.images.length === 0) {
         setError(
-          "No images were found. The ScoutAI API returned zero images. Please check your input parameters (company ID, task ID, date) and try again.",
+          isDevMode
+            ? "No images were found. The ScoutAI API returned zero images. Please check your input parameters (company ID, task ID, date) and try again."
+            : "Something went wrong. Please try again.",
         )
       }
     } catch (error) {
       console.error("Error fetching images:", error)
-      setError(`Error fetching images: ${error instanceof Error ? error.message : String(error)}`)
+      setError(
+        isDevMode
+          ? `Error fetching images: ${error instanceof Error ? error.message : String(error)}`
+          : "Something went wrong. Please try again.",
+      )
     } finally {
       setIsLoading(false)
     }
@@ -260,12 +266,18 @@ export default function Dashboard() {
   // Update the handleProcessImages function to show batch processing progress
   const handleProcessImages = async () => {
     if (images.length === 0) {
-      setError("No images to process. Please fetch images first.")
+      setError(
+        isDevMode ? "No images to process. Please fetch images first." : "Something went wrong. Please try again.",
+      )
       return
     }
 
     if (!prompt) {
-      setError("Please select a prompt for analysis before processing images.")
+      setError(
+        isDevMode
+          ? "Please select a prompt for analysis before processing images."
+          : "Something went wrong. Please try again.",
+      )
       return
     }
 
@@ -301,7 +313,7 @@ export default function Dashboard() {
 
       // Check for errors
       if (response.error) {
-        setError(response.error)
+        setError(isDevMode ? response.error : "Something went wrong. Please try again.")
         console.error("Error returned from processImagesWithGPT:", response.error)
         return
       }
@@ -324,7 +336,11 @@ export default function Dashboard() {
       }
     } catch (error) {
       console.error("Error processing images:", error)
-      setError(`Error processing images: ${error instanceof Error ? error.message : String(error)}`)
+      setError(
+        isDevMode
+          ? `Error processing images: ${error instanceof Error ? error.message : String(error)}`
+          : "Something went wrong. Please try again.",
+      )
     } finally {
       setIsProcessing(false)
     }
@@ -335,7 +351,7 @@ export default function Dashboard() {
     // Check if prompt is provided for manual analysis
     const promptValue = formData.get("prompt")
     if (!promptValue) {
-      setError("Please select a prompt for analysis.")
+      setError(isDevMode ? "Please select a prompt for analysis." : "Something went wrong. Please try again.")
       return
     }
 
@@ -354,7 +370,7 @@ export default function Dashboard() {
 
       // Check for errors
       if (response.error) {
-        setError(response.error)
+        setError(isDevMode ? response.error : "Something went wrong. Please try again.")
         console.error("Error returned from analyzeImages:", response.error)
         return
       }
@@ -375,7 +391,11 @@ export default function Dashboard() {
       })
     } catch (error) {
       console.error("Error analyzing images:", error)
-      setError(`Error analyzing images: ${error instanceof Error ? error.message : String(error)}`)
+      setError(
+        isDevMode
+          ? `Error analyzing images: ${error instanceof Error ? error.message : String(error)}`
+          : "Something went wrong. Please try again.",
+      )
     } finally {
       setIsLoading(false)
       setProgress(100)
