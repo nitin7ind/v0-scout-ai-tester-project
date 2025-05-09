@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { cn, getCurrentDate, getYesterdayDate } from "@/lib/utils"
+import { cn } from "@/lib/utils"
 import tasksData from "@/lib/tasks.json"
 import { scoutAITasks } from "@/lib/scout-ai-tasks"
 
@@ -11,6 +11,25 @@ function getDefaultFromDate() {
   const date = new Date()
   date.setDate(date.getDate() - 30)
   return date.toISOString().split("T")[0]
+}
+
+// Get current date in YYYY-MM-DD format
+function getCurrentDate() {
+  const today = new Date()
+  const year = today.getFullYear()
+  const month = String(today.getMonth() + 1).padStart(2, "0")
+  const day = String(today.getDate()).padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
+
+// Get yesterday's date in YYYY-MM-DD format
+function getYesterdayDate() {
+  const yesterday = new Date()
+  yesterday.setDate(yesterday.getDate() - 1)
+  const year = yesterday.getFullYear()
+  const month = String(yesterday.getMonth() + 1).padStart(2, "0")
+  const day = String(yesterday.getDate()).padStart(2, "0")
+  return `${year}-${month}-${day}`
 }
 
 export default function DashboardForm({
@@ -355,6 +374,7 @@ export default function DashboardForm({
                   id="task_id"
                   name="task_id"
                   className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                  defaultValue={scoutAITasks.length > 0 ? scoutAITasks[0].id : ""}
                   required
                 >
                   <option value="">Select a task...</option>
