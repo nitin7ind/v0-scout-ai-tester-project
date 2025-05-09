@@ -324,47 +324,45 @@ export default function DashboardForm({
         {inputType === "scoutai" && (
           <div className="space-y-4">
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <label htmlFor="env" className="block text-sm font-medium">
-                  Environment
-                </label>
-                <select
-                  id="env"
-                  name="env"
-                  className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                  defaultValue="prod"
-                >
-                  <option value="prod">Production</option>
-                  <option value="staging">Staging</option>
-                </select>
-              </div>
+              {/* Only show environment in dev mode */}
+              {isDevMode && (
+                <div className="space-y-2">
+                  <label htmlFor="env" className="block text-sm font-medium">
+                    Environment
+                  </label>
+                  <select
+                    id="env"
+                    name="env"
+                    className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                    defaultValue="prod"
+                  >
+                    <option value="prod">Production</option>
+                    <option value="staging">Staging</option>
+                  </select>
+                </div>
+              )}
+              {/* Add hidden input for environment when not in dev mode */}
+              {!isDevMode && <input type="hidden" name="env" value="prod" />}
 
-              <div className="space-y-2">
-                <label htmlFor="company_id" className="block text-sm font-medium">
-                  Company ID
-                </label>
-                <input
-                  id="company_id"
-                  name="company_id"
-                  placeholder="Company ID"
-                  value={companyId}
-                  onChange={(e) => setCompanyId(e.target.value)}
-                  className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label htmlFor="location_id" className="block text-sm font-medium">
-                  Location ID (optional)
-                </label>
-                <input
-                  id="location_id"
-                  name="location_id"
-                  placeholder="Location ID"
-                  className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                />
-              </div>
+              {/* Only show company ID field if not provided in URL */}
+              {(!companyId || isDevMode) && (
+                <div className="space-y-2">
+                  <label htmlFor="company_id" className="block text-sm font-medium">
+                    Company ID
+                  </label>
+                  <input
+                    id="company_id"
+                    name="company_id"
+                    placeholder="Company ID"
+                    value={companyId}
+                    onChange={(e) => setCompanyId(e.target.value)}
+                    className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                    required
+                  />
+                </div>
+              )}
+              {/* Add hidden input for company ID when provided in URL and not in dev mode */}
+              {companyId && !isDevMode && <input type="hidden" name="company_id" value={companyId} />}
 
               <div className="space-y-2">
                 <label htmlFor="task_id" className="block text-sm font-medium">
@@ -397,6 +395,18 @@ export default function DashboardForm({
                   defaultValue={yesterdayDate}
                   className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
                   required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="location_id" className="block text-sm font-medium">
+                  Location ID (optional)
+                </label>
+                <input
+                  id="location_id"
+                  name="location_id"
+                  placeholder="Location ID"
+                  className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
                 />
               </div>
 
