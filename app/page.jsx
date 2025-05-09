@@ -1262,7 +1262,10 @@ export default function Dashboard() {
                     {displayItem.processed ? (
                       <>
                         <p className="text-sm">
-                          <strong>Label:</strong> {displayItem.label}
+                          <strong>Label:</strong>{" "}
+                          {displayItem.error && isDevMode && displayItem.detailedError
+                            ? displayItem.detailedError
+                            : displayItem.label}
                         </p>
                         {displayItem.modelUsed && isDevMode && (
                           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -1350,7 +1353,8 @@ export default function Dashboard() {
                 </div>
                 <div className="p-4">
                   <p className="text-sm">
-                    <strong>Label:</strong> {item.label}
+                    <strong>Label:</strong>{" "}
+                    {item.error && isDevMode && item.detailedError ? item.detailedError : item.label}
                   </p>
                   {item.modelUsed && isDevMode && (
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">

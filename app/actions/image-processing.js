@@ -106,9 +106,11 @@ export async function processImagesWithGPT(
           const errorImage = {
             ...imageToProcess,
             processed: true,
-            label: `Error: Something went wrong. Please try again.`,
+            label: `Something went wrong. Please try again.`,
             error: true,
             modelUsed: modelType,
+            // Store the detailed error message in a separate property that will only be used in dev mode
+            detailedError: error.message || String(error),
           }
 
           // Mark this image as processed (with error) in our map
@@ -300,6 +302,7 @@ export async function callGemini(prompt, base64Image, imageSource) {
     }
   } catch (error) {
     console.error("Error calling Gemini:", error)
+    // Always throw a generic error message to avoid exposing API details
     throw new Error(`Something went wrong. Please try again.`)
   }
 }
