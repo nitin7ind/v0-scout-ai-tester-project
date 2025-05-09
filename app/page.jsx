@@ -849,7 +849,7 @@ export default function Dashboard() {
     <div className="container mx-auto p-6">
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-baseline gap-3">
-          <Image src="/images/wobot-logo.png" alt="Wobot.ai Logo" width={120} height={30} />
+          <Image src="/images/wobot-logo.png" alt="Wobot.ai Logo" width={120} height={30} priority unoptimized />
           <h1 className="text-2xl font-medium">Scout AI Playground</h1>
         </div>
         <div className="flex items-center gap-2">
