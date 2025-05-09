@@ -661,7 +661,7 @@ export default function DashboardForm({
         <button
           type="submit"
           className="w-full py-2 px-4 border border-blue-600 dark:border-blue-500 text-blue-600 dark:text-blue-400 font-medium rounded-md bg-transparent hover:bg-blue-50 dark:hover:bg-blue-900/20"
-          disabled={!selectedTask}
+          disabled={inputType !== "scoutai" && !selectedTask}
         >
           {inputType === "scoutai" ? "Fetch Images" : "Analyze"}
         </button>

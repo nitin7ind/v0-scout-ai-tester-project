@@ -40,6 +40,7 @@ export default function Dashboard() {
   })
   const { theme, setTheme } = useTheme()
   const [showCalculator, setShowCalculator] = useState(false)
+  const [autoFetchTriggered, setAutoFetchTriggered] = useState(false)
 
   // Events API specific state
   const [eventsApiKey, setEventsApiKey] = useState("")
@@ -89,6 +90,35 @@ export default function Dashboard() {
       ? "https://api.wobot.ai/client/v2"
       : "https://api-staging.wobot.ai/client/v2"
   }
+
+  // Auto-fetch on page load
+  useEffect(() => {
+    // Only trigger auto-fetch once and only if in scoutai mode
+    if (activeMode === "scoutai" && !autoFetchTriggered && !isLoading) {
+      setAutoFetchTriggered(true)
+
+      // Create a FormData object with default values
+      const formData = new FormData()
+      formData.append("input_type", "scoutai")
+      formData.append("env", "prod")
+      formData.append("company_id", "") // This will be filled by URL param if available
+      formData.append("task_id", "681b97b6d80705cc948ddfe4") // SmartSafe Enclosure Open
+      formData.append("date", getYesterdayDate())
+      formData.append("limit", "12")
+      formData.append("page", "1")
+
+      // Check for company ID in URL
+      if (typeof window !== "undefined") {
+        const urlParams = new URLSearchParams(window.location.search)
+        const companyParam = urlParams.get("company")
+        if (companyParam) {
+          formData.set("company_id", companyParam)
+          // Only fetch if we have a company ID
+          handleFetchImages(formData)
+        }
+      }
+    }
+  }, [activeMode, autoFetchTriggered, isLoading])
 
   // Calculate pricing based on token usage and model
   const calculatePricing = () => {
@@ -234,6 +264,11 @@ export default function Dashboard() {
       return
     }
 
+    if (!prompt) {
+      setError("Please select a prompt for analysis before processing images.")
+      return
+    }
+
     setIsProcessing(true)
     setProgress(0)
     setError(null)
@@ -297,12 +332,19 @@ export default function Dashboard() {
 
   // Handle manual image analysis
   const handleManualAnalyze = async (formData) => {
+    // Check if prompt is provided for manual analysis
+    const promptValue = formData.get("prompt")
+    if (!promptValue) {
+      setError("Please select a prompt for analysis.")
+      return
+    }
+
     setIsLoading(true)
     setProgress(0)
     setResults([])
     setError(null)
     setActiveMode("manual")
-    setPrompt(formData.get("prompt") || "")
+    setPrompt(promptValue)
     setSelectedModel(formData.get("model_type") || "gpt")
 
     try {
@@ -1092,6 +1134,7 @@ export default function Dashboard() {
                 <button
                   onClick={handleProcessImages}
                   className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  disabled={!prompt}
                 >
                   Process {selectedImages.length} Selected
                   {isDevMode ? ` with ${getFriendlyModelName(selectedModel)}` : ""}
