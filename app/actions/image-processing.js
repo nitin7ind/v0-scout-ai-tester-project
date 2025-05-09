@@ -13,7 +13,13 @@ const openai = new OpenAI({
 const googleAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || "")
 
 // Step 2: Process images with selected AI model
-export async function processImagesWithGPT(images, prompt, selectedImageIndices = null, modelType = "gpt") {
+export async function processImagesWithGPT(
+  images,
+  prompt,
+  selectedImageIndices = null,
+  modelType = "gpt",
+  batchSize = 10,
+) {
   try {
     // If selectedImageIndices is provided and not empty, filter images to process only selected ones
     const imagesToProcess =
@@ -26,7 +32,7 @@ export async function processImagesWithGPT(images, prompt, selectedImageIndices 
     )
 
     // Add batch processing logic
-    const BATCH_SIZE = 10 // Process 10 images at a time to avoid timeouts
+    const BATCH_SIZE = batchSize // Use the provided batch size
     const batches = []
 
     // Split images into batches

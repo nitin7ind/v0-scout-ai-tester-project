@@ -1,8 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { getCurrentDate, cn } from "@/lib/utils"
+import { cn, getCurrentDate } from "@/lib/utils"
 import tasksData from "@/lib/tasks.json"
+import { scoutAITasks } from "@/lib/scout-ai-tasks"
 
 // Add this function at the top of the component
 // Get default from date (30 days ago)
@@ -18,7 +19,7 @@ export default function DashboardForm({
   totalPages = 1,
   onPageChange,
   curlCommand,
-  activeMode = "manual", // Changed default to manual
+  activeMode = "scoutai", // Changed default to scoutai
   onModeChange,
   onPromptChange,
   selectedModel = "gpt",
@@ -42,11 +43,23 @@ export default function DashboardForm({
   onEventsCameraChange,
 }) {
   const [inputType, setInputType] = useState(activeMode)
-  const [selectedTask, setSelectedTask] = useState("")
+  const [selectedTask, setSelectedTask] = useState("custom") // Set custom as default
   const [customPrompt, setCustomPrompt] = useState("")
   const [prompt, setPrompt] = useState("")
   const [modelType, setModelType] = useState(isDevMode ? selectedModel : "gemini")
   const currentDate = getCurrentDate()
+  const [companyId, setCompanyId] = useState("")
+
+  // Check for company ID in URL on component mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search)
+      const companyParam = urlParams.get("company")
+      if (companyParam) {
+        setCompanyId(companyParam)
+      }
+    }
+  }, [])
 
   // Update inputType when activeMode changes
   useEffect(() => {
@@ -136,40 +149,35 @@ export default function DashboardForm({
             className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
             required
           >
-            <option value="" disabled>
-              Select a task...
-            </option>
+            <option value="custom">Custom Prompt</option>
             {tasksData.tasks.map((task) => (
               <option key={task.id} value={task.id}>
                 {task.name}
               </option>
             ))}
-            <option value="custom">Custom Prompt</option>
           </select>
         </div>
 
-        {/* Only show prompt textarea if it's a custom prompt or if in dev mode */}
-        {(selectedTask === "custom" || (selectedTask && isDevMode)) && (
-          <div className="space-y-2">
-            <label htmlFor="prompt" className="block text-sm font-medium">
-              {selectedTask === "custom" ? "Custom Prompt" : "Task Prompt"}
-            </label>
-            <textarea
-              id="prompt"
-              name="prompt_display" // This is just for display, we'll use the state value when submitting
-              value={selectedTask === "custom" ? customPrompt : prompt}
-              onChange={handleCustomPromptChange}
-              placeholder="Enter prompt for image analysis"
-              className={cn(
-                "w-full min-h-32 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600",
-                selectedTask !== "custom" && "bg-gray-50 dark:bg-gray-800",
-              )}
-              readOnly={selectedTask !== "custom"}
-              required
-            />
-            <input type="hidden" name="prompt" value={prompt} />
-          </div>
-        )}
+        {/* Always show prompt textarea since custom is default */}
+        <div className="space-y-2">
+          <label htmlFor="prompt" className="block text-sm font-medium">
+            {selectedTask === "custom" ? "Custom Prompt" : "Task Prompt"}
+          </label>
+          <textarea
+            id="prompt"
+            name="prompt_display" // This is just for display, we'll use the state value when submitting
+            value={selectedTask === "custom" ? customPrompt : prompt}
+            onChange={handleCustomPromptChange}
+            placeholder="Enter prompt for image analysis"
+            className={cn(
+              "w-full min-h-32 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600",
+              selectedTask !== "custom" && "bg-gray-50 dark:bg-gray-800",
+            )}
+            readOnly={selectedTask !== "custom"}
+            required
+          />
+          <input type="hidden" name="prompt" value={prompt} />
+        </div>
 
         {/* Only show model selection in dev mode */}
         {isDevMode && (
@@ -319,6 +327,8 @@ export default function DashboardForm({
                   id="company_id"
                   name="company_id"
                   placeholder="Company ID"
+                  value={companyId}
+                  onChange={(e) => setCompanyId(e.target.value)}
                   className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
                   required
                 />
@@ -338,15 +348,21 @@ export default function DashboardForm({
 
               <div className="space-y-2">
                 <label htmlFor="task_id" className="block text-sm font-medium">
-                  Task ID
+                  Task
                 </label>
-                <input
+                <select
                   id="task_id"
                   name="task_id"
-                  placeholder="Task ID"
                   className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
                   required
-                />
+                >
+                  <option value="">Select a task...</option>
+                  {scoutAITasks.map((task) => (
+                    <option key={task.id} value={task.id}>
+                      {task.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="space-y-2">

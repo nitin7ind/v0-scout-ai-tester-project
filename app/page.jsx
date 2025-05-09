@@ -22,7 +22,7 @@ export default function Dashboard() {
   const [curlCommand, setCurlCommand] = useState("")
   const [apiResponse, setApiResponse] = useState(null)
   const [prompt, setPrompt] = useState("")
-  const [activeMode, setActiveMode] = useState("manual") // Changed default to manual
+  const [activeMode, setActiveMode] = useState("scoutai") // Changed default to scoutai
   const [selectedModel, setSelectedModel] = useState("gemini") // Default to gemini (Glacier)
   const [isDevMode, setIsDevMode] = useState(false) // Track if dev mode is enabled
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false) // Track if password modal is open
@@ -236,10 +236,19 @@ export default function Dashboard() {
 
       console.log(`Processing ${totalToProcess} images with ${selectedModel.toUpperCase()}...`)
 
+      // Get batch size from form if in dev mode
+      let batchSize = 10 // Default batch size
+      if (isDevMode) {
+        const batchSizeInput = document.getElementById("batch_size")
+        if (batchSizeInput) {
+          batchSize = Number.parseInt(batchSizeInput.value) || 10
+        }
+      }
+
       // Show initial progress
       setProgress(5)
 
-      const response = await processImagesWithGPT(images, prompt, indicesToProcess, selectedModel)
+      const response = await processImagesWithGPT(images, prompt, indicesToProcess, selectedModel, batchSize)
 
       // Update progress as processing completes
       setProgress(100)
@@ -996,12 +1005,6 @@ export default function Dashboard() {
                 <button
                   onClick={() => handleDownload("json")}
                   className="px-3 py-1 bg-purple-600 text-white rounded-md hover:bg-purple-700 mr-2"
-                >
-                  Download JSON
-                </button>
-                <button
-                  onClick={() => handleDownload("csv")}
-                  className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700"
                 >
                   Download JSON
                 </button>
