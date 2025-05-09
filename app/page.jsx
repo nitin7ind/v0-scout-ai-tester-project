@@ -445,15 +445,15 @@ export default function Dashboard() {
 
   // Update the handleFormSubmit function to handle the Events API option
   const handleFormSubmit = (formData) => {
+    // Store the current dev mode state
+    const currentDevMode = isDevMode
+
     const inputType = formData.get("input_type")
 
     // If switching modes, reset state
     if (inputType !== activeMode) {
       resetState(inputType)
     }
-
-    // Preserve dev mode
-    const currentDevMode = isDevMode
 
     // Ensure task_id is set for ScoutAI mode
     if (inputType === "scoutai") {
@@ -498,7 +498,7 @@ export default function Dashboard() {
       handleFetchImages(formData)
     }
 
-    // Restore dev mode
+    // Restore dev mode state after form submission
     setIsDevMode(currentDevMode)
   }
 
@@ -993,7 +993,6 @@ export default function Dashboard() {
           const formData = new FormData(e.target)
           handleFormSubmit(formData)
         }}
-        method="post"
       >
         <DashboardForm
           onSubmit={handleFormSubmit}
