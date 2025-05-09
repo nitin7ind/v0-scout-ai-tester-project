@@ -1,7 +1,7 @@
 "use server"
 
 import { OpenAI } from "openai"
-import { GoogleGenerativeAI } from "@google/generative-ai"
+import { GoogleGenerativeAI } from "@google-generative-ai"
 import { makeSerializable } from "./utils"
 
 // Initialize OpenAI client
@@ -143,7 +143,7 @@ export async function processImagesWithGPT(
   } catch (error) {
     console.error("Unhandled error in processImagesWithGPT:", error)
     return {
-      error: `An unexpected error occurred: ${error.message || "Unknown error"}`,
+      error: `An unexpected error occurred. Please try again.`,
       results: [],
     }
   }
@@ -170,7 +170,7 @@ export async function getLabelFromImageUrlWithGPT(imageUrl, prompt) {
     return await callGpt(prompt, imageDataUri, imageUrl)
   } catch (error) {
     console.error("Error processing image URL with GPT:", error)
-    throw new Error(`Error fetching image: ${error.message || String(error)}`)
+    throw new Error(`Error processing image`)
   }
 }
 
@@ -194,7 +194,7 @@ export async function getLabelFromImageUrlWithGemini(imageUrl, prompt) {
     return await callGemini(prompt, base64Image, imageUrl)
   } catch (error) {
     console.error("Error processing image URL with Gemini:", error)
-    throw new Error(`Error fetching image: ${error.message || String(error)}`)
+    throw new Error(`Error processing image`)
   }
 }
 
@@ -238,7 +238,7 @@ export async function callGpt(prompt, imageDataUri, imageSource) {
     }
   } catch (error) {
     console.error("Error calling GPT:", error)
-    throw new Error(`Error from GPT: ${error.message || String(error)}`)
+    throw new Error(`Error processing image`)
   }
 }
 
@@ -268,7 +268,7 @@ export async function callGemini(prompt, base64Image, imageSource) {
 
     // Create the system prompt and user prompt
     const systemPrompt =
-      "You are a visual analysis assistant examining images from a restaurant or food service environment."
+      "You are a visual analysis assistant examining images from a restaurant or food service environment. Reply in max 3-4 words, unless user explicitly asks to explain. You will only answer related to the image, and won't answer anything without the image context."
     const fullPrompt = `${systemPrompt}\n\n${prompt}`
 
     // Generate content with the image
@@ -300,6 +300,6 @@ export async function callGemini(prompt, base64Image, imageSource) {
     }
   } catch (error) {
     console.error("Error calling Gemini:", error)
-    throw new Error(`Error from Gemini: ${error.message || String(error)}`)
+    throw new Error(`Error processing image`)
   }
 }

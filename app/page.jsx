@@ -992,7 +992,13 @@ export default function Dashboard() {
       {error && (
         <div className="mt-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-red-600 dark:text-red-400">
           <h3 className="font-medium mb-2">Error</h3>
-          <p>{error}</p>
+          {isDevMode ? (
+            // Show detailed error in dev mode
+            <p>{error}</p>
+          ) : (
+            // Show generic error in non-dev mode
+            <p>Something went wrong. Please try again.</p>
+          )}
 
           {isDevMode && apiResponse && (
             <div className="mt-4">
