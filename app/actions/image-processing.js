@@ -211,7 +211,7 @@ export async function callGpt(prompt, imageDataUri, imageSource) {
         {
           role: "system",
           content:
-            "You are a visual analysis assistant examining images from a restaurant or food service environment.",
+            "You are a visual analysis assistant examining images from a restaurant or food service environment. Reply in max 3-4 words, unless user explicitly asks to explain. You will only answer related to the image, and won't answer anything without the image context.",
         },
         {
           role: "user",

@@ -229,7 +229,7 @@ export default function Dashboard() {
       setPagination({
         currentPage: response.currentPage || 1,
         totalPages: response.totalPages || 1,
-        totalCount: response.totalCount || 0,
+        totalCount: 0,
       })
       setApiCall(response.apiCall || "")
       setCurlCommand(response.curlCommand || "")
@@ -747,7 +747,7 @@ export default function Dashboard() {
       setPagination({
         currentPage: response.currentPage || 1,
         totalPages: response.totalPages || 1,
-        totalCount: response.totalCount || 0,
+        totalCount: 0,
       })
       setTotalEvents(response.totalCount || 0)
       setApiCall(response.apiCall || "")
@@ -1108,11 +1108,6 @@ export default function Dashboard() {
             <div className="flex items-center gap-2">
               <h2 className="text-xl font-medium">
                 {activeMode === "events" ? "Events" : "Images"} ({images.length})
-                {pagination && pagination.totalCount > 0 && (
-                  <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">
-                    Page {pagination.currentPage} of {pagination.totalPages} ({pagination.totalCount} total)
-                  </span>
-                )}
               </h2>
 
               {/* Select all checkbox */}
@@ -1152,21 +1147,23 @@ export default function Dashboard() {
               {pagination && pagination.totalPages > 1 && (
                 <div className="flex items-center gap-2 ml-4">
                   <button
-                    className="px-3 py-1 border rounded-md text-sm flex items-center disabled:opacity-50"
+                    className="px-2 py-1 border rounded-l-md text-sm flex items-center justify-center disabled:opacity-50"
                     onClick={() => handlePageChange(pagination.currentPage - 1)}
                     disabled={pagination.currentPage <= 1 || isLoading || isProcessing}
+                    aria-label="Previous page"
                   >
-                    ← Previous
+                    ←
                   </button>
-                  <span className="text-sm">
-                    Page {pagination.currentPage} of {pagination.totalPages}
+                  <span className="px-3 py-1 border-t border-b text-sm">
+                    {pagination.currentPage} / {pagination.totalPages}
                   </span>
                   <button
-                    className="px-3 py-1 border rounded-md text-sm flex items-center disabled:opacity-50"
+                    className="px-2 py-1 border rounded-r-md text-sm flex items-center justify-center disabled:opacity-50"
                     onClick={() => handlePageChange(pagination.currentPage + 1)}
                     disabled={pagination.currentPage >= pagination.totalPages || isLoading || isProcessing}
+                    aria-label="Next page"
                   >
-                    Next →
+                    →
                   </button>
                 </div>
               )}
@@ -1259,21 +1256,23 @@ export default function Dashboard() {
             <div className="flex justify-center mt-6">
               <div className="flex items-center gap-2">
                 <button
-                  className="px-3 py-1 border rounded-md text-sm flex items-center disabled:opacity-50"
+                  className="px-2 py-1 border rounded-l-md text-sm flex items-center justify-center disabled:opacity-50"
                   onClick={() => handlePageChange(pagination.currentPage - 1)}
                   disabled={pagination.currentPage <= 1 || isLoading || isProcessing}
+                  aria-label="Previous page"
                 >
-                  ← Previous
+                  ←
                 </button>
-                <span className="text-sm">
-                  Page {pagination.currentPage} of {pagination.totalPages}
+                <span className="px-3 py-1 border-t border-b text-sm">
+                  {pagination.currentPage} / {pagination.totalPages}
                 </span>
                 <button
-                  className="px-3 py-1 border rounded-md text-sm flex items-center disabled:opacity-50"
+                  className="px-2 py-1 border rounded-r-md text-sm flex items-center justify-center disabled:opacity-50"
                   onClick={() => handlePageChange(pagination.currentPage + 1)}
                   disabled={pagination.currentPage >= pagination.totalPages || isLoading || isProcessing}
+                  aria-label="Next page"
                 >
-                  Next →
+                  →
                 </button>
               </div>
             </div>
