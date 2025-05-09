@@ -8,6 +8,7 @@ import PasswordModal from "@/components/password-modal"
 import Image from "next/image"
 import { Calculator, Code, Moon, Sun } from "lucide-react"
 import CostCalculator from "@/components/cost-calculator"
+import { Header } from "@/components/header"
 
 // Helper function to sanitize error messages for display
 function sanitizeErrorMessage(message) {
@@ -962,263 +963,385 @@ export default function Dashboard() {
 
   // Update the return statement to remove the Events API tab
   return (
-    <div className="container mx-auto p-6">
-      <div className="flex justify-between items-center mb-6">
-        <div className="flex items-baseline gap-3">
-          <Image src="/images/wobot-logo.png" alt="Wobot.ai Logo" width={120} height={30} />
-          <h1 className="text-2xl font-medium">Scout AI Playground</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          {/* Calculator toggle */}
-          <button
-            className={`p-1 rounded-md border ${
-              showCalculator
-                ? "border-green-500 text-green-500"
-                : "border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400"
-            }`}
-            onClick={toggleCalculator}
-            title="Cost Calculator"
-          >
-            <Calculator size={18} />
-          </button>
+    <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+      <Header />
+      <div className="container mx-auto p-6">
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex items-baseline gap-3">
+            <Image src="/images/wobot-logo.png" alt="Wobot.ai Logo" width={120} height={30} />
+            <h1 className="text-2xl font-medium">Scout AI Playground</h1>
+          </div>
+          <div className="flex items-center gap-2">
+            {/* Calculator toggle */}
+            <button
+              className={`p-1 rounded-md border ${
+                showCalculator
+                  ? "border-green-500 text-green-500"
+                  : "border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400"
+              }`}
+              onClick={toggleCalculator}
+              title="Cost Calculator"
+            >
+              <Calculator size={18} />
+            </button>
 
-          {/* Dev mode toggle */}
-          <button
-            className={`p-1 rounded-md border ${
-              isDevMode
-                ? "border-blue-500 text-blue-500"
-                : "border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400"
-            }`}
-            onClick={toggleDevModeModal}
-            title={isDevMode ? "Developer Mode Active" : "Enable Developer Mode"}
-          >
-            <Code size={18} />
-          </button>
+            {/* Dev mode toggle */}
+            <button
+              className={`p-1 rounded-md border ${
+                isDevMode
+                  ? "border-blue-500 text-blue-500"
+                  : "border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400"
+              }`}
+              onClick={toggleDevModeModal}
+              title={isDevMode ? "Developer Mode Active" : "Enable Developer Mode"}
+            >
+              <Code size={18} />
+            </button>
 
-          {/* Theme toggle */}
-          <button className="p-1 rounded-md border dark:border-gray-600" onClick={toggleTheme}>
-            {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-          </button>
-        </div>
-      </div>
-
-      {/* Show calculator if toggled */}
-      {showCalculator && (
-        <div className="mb-6">
-          <CostCalculator isDevMode={isDevMode} />
-        </div>
-      )}
-
-      <DashboardForm
-        onSubmit={handleFormSubmit}
-        currentPage={pagination.currentPage}
-        totalPages={pagination.totalPages}
-        onPageChange={handlePageChange}
-        curlCommand={curlCommand}
-        activeMode={activeMode}
-        onModeChange={(mode) => resetState(mode)}
-        onPromptChange={handlePromptChange}
-        selectedModel={selectedModel}
-        onModelChange={handleModelChange}
-        isDevMode={isDevMode}
-        // Events API specific props
-        isEventsKeyValid={isEventsKeyValid}
-        eventsApiKey={eventsApiKey}
-        eventsEnvironment={eventsEnvironment}
-        eventsLocations={locations}
-        eventsTasks={tasks}
-        eventsCameras={cameras}
-        eventsLocation={selectedLocation}
-        eventsTask={selectedTask}
-        eventsCamera={selectedCamera}
-        eventsPage={eventsPage}
-        onEventsApiValidate={(apiKey, env) => validateEventsApiKey(apiKey, env)}
-        onEventsApiReset={() => setIsEventsKeyValid(false)}
-        onEventsLocationChange={handleLocationChange}
-        onEventsTaskChange={handleTaskChange}
-        onEventsCameraChange={handleCameraChange}
-      />
-
-      {/* Rest of the playground content... */}
-      {isLoading && (
-        <div className="mt-6 text-center">
-          <div className="flex items-center justify-center gap-2">
-            <div className="animate-spin h-5 w-5 border-2 border-blue-500 rounded-full border-t-transparent"></div>
-            <p className="text-gray-500 dark:text-gray-400">
-              {activeMode === "scoutai"
-                ? "Fetching images..."
-                : activeMode === "events"
-                  ? "Fetching events..."
-                  : "Processing image..."}
-            </p>
+            {/* Theme toggle */}
+            <button className="p-1 rounded-md border dark:border-gray-600" onClick={toggleTheme}>
+              {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
           </div>
         </div>
-      )}
 
-      {/* Error display */}
-      {error && (
-        <div className="mt-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-red-600 dark:text-red-400">
-          <h3 className="font-medium mb-2">Error</h3>
-          {isDevMode ? (
-            // Show detailed error in dev mode
-            <p>{error}</p>
-          ) : (
-            // Show generic error in non-dev mode
-            <p>Something went wrong. Please try again.</p>
-          )}
+        {/* Show calculator if toggled */}
+        {showCalculator && (
+          <div className="mb-6">
+            <CostCalculator isDevMode={isDevMode} />
+          </div>
+        )}
 
-          {isDevMode && apiResponse && (
-            <div className="mt-4">
-              <p className="font-medium">API Response:</p>
-              <div className="mt-2 p-2 bg-gray-100 dark:bg-gray-800 rounded-md overflow-x-auto text-xs">
-                <div>
-                  <strong>Status:</strong> {apiResponse.status || "N/A"}
-                  {apiResponse.message !== undefined && (
-                    <div>
-                      <strong>Message:</strong> {apiResponse.message}
+        <DashboardForm
+          onSubmit={handleFormSubmit}
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
+          onPageChange={handlePageChange}
+          curlCommand={curlCommand}
+          activeMode={activeMode}
+          onModeChange={(mode) => resetState(mode)}
+          onPromptChange={handlePromptChange}
+          selectedModel={selectedModel}
+          onModelChange={handleModelChange}
+          isDevMode={isDevMode}
+          // Events API specific props
+          isEventsKeyValid={isEventsKeyValid}
+          eventsApiKey={eventsApiKey}
+          eventsEnvironment={eventsEnvironment}
+          eventsLocations={locations}
+          eventsTasks={tasks}
+          eventsCameras={cameras}
+          eventsLocation={selectedLocation}
+          eventsTask={selectedTask}
+          eventsCamera={selectedCamera}
+          eventsPage={eventsPage}
+          onEventsApiValidate={(apiKey, env) => validateEventsApiKey(apiKey, env)}
+          onEventsApiReset={() => setIsEventsKeyValid(false)}
+          onEventsLocationChange={handleLocationChange}
+          onEventsTaskChange={handleTaskChange}
+          onEventsCameraChange={handleCameraChange}
+        />
+
+        {/* Rest of the playground content... */}
+        {isLoading && (
+          <div className="mt-6 text-center">
+            <div className="flex items-center justify-center gap-2">
+              <div className="animate-spin h-5 w-5 border-2 border-blue-500 rounded-full border-t-transparent"></div>
+              <p className="text-gray-500 dark:text-gray-400">
+                {activeMode === "scoutai"
+                  ? "Fetching images..."
+                  : activeMode === "events"
+                    ? "Fetching events..."
+                    : "Processing image..."}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Error display */}
+        {error && (
+          <div className="mt-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-red-600 dark:text-red-400">
+            <h3 className="font-medium mb-2">Error</h3>
+            {isDevMode ? (
+              // Show detailed error in dev mode
+              <p>{error}</p>
+            ) : (
+              // Show generic error in non-dev mode
+              <p>Something went wrong. Please try again.</p>
+            )}
+
+            {isDevMode && apiResponse && (
+              <div className="mt-4">
+                <p className="font-medium">API Response:</p>
+                <div className="mt-2 p-2 bg-gray-100 dark:bg-gray-800 rounded-md overflow-x-auto text-xs">
+                  <div>
+                    <strong>Status:</strong> {apiResponse.status || "N/A"}
+                    {apiResponse.message !== undefined && (
+                      <div>
+                        <strong>Message:</strong> {apiResponse.message}
+                      </div>
+                    )}
+                  </div>
+
+                  {apiResponse.data && (
+                    <div className="mt-2">
+                      <div>
+                        <strong>Images:</strong> {apiResponse.data.data?.length || 0}
+                      </div>
+                      <div>
+                        <strong>Total:</strong> {apiResponse.data.total || "N/A"}
+                      </div>
                     </div>
                   )}
-                </div>
 
-                {apiResponse.data && (
-                  <div className="mt-2">
-                    <div>
-                      <strong>Images:</strong> {apiResponse.data.data?.length || 0}
-                    </div>
-                    <div>
-                      <strong>Total:</strong> {apiResponse.data.total || "N/A"}
-                    </div>
+                  <details className="mt-2">
+                    <summary className="cursor-pointer text-blue-600 dark:text-blue-400">View Full Response</summary>
+                    <pre className="mt-2">{JSON.stringify(apiResponse, null, 2)}</pre>
+                  </details>
+                </div>
+              </div>
+            )}
+
+            {isDevMode && (
+              <div className="mt-4">
+                <h4 className="font-medium mb-1">Troubleshooting Tips:</h4>
+                <ul className="list-disc pl-5 text-sm">
+                  <li>Verify your Company ID and Task ID are correct</li>
+                  <li>Check that the date is valid and has images available</li>
+                  <li>Try a different page number if available</li>
+                  <li>Check the console logs for more detailed error information</li>
+                  <li>Ensure your API keys are valid and have sufficient credits</li>
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Display processing stats if available - only in dev mode */}
+        {stats.processedCount > 0 && isDevMode && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6 mt-6">
+            <h3 className="text-lg font-medium mb-2">Processing Summary</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <p>
+                  <strong>Images processed:</strong> {stats.processedCount} of {stats.totalFetched}
+                </p>
+                <p>
+                  <strong>Model used:</strong> {getFriendlyModelName(stats.modelUsed)}
+                </p>
+              </div>
+              <div>
+                <p>
+                  <strong>Token usage:</strong> {stats.totalTokens.toLocaleString()} (Prompt:{" "}
+                  {stats.promptTokens.toLocaleString()}, Completion: {stats.completionTokens.toLocaleString()})
+                </p>
+              </div>
+            </div>
+
+            {/* Pricing information */}
+            <div className="mt-2 p-3 bg-gray-50 dark:bg-gray-700 rounded-md">
+              <h4 className="text-sm font-medium mb-1">Estimated Cost</h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm">
+                <div>
+                  <p>Input: ${pricing.inputCost}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    (${stats.modelUsed === "gemini" ? "0.15" : "0.40"} / 1M tokens)
+                  </p>
+                </div>
+                <div>
+                  <p>Output: ${pricing.outputCost}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    (${stats.modelUsed === "gemini" ? "0.60" : "1.60"} / 1M tokens)
+                  </p>
+                </div>
+                <div>
+                  <p className="font-medium">Total: ${pricing.totalCost}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <button
+                onClick={() => handleDownload("json")}
+                className="px-3 py-1 bg-purple-600 text-white rounded-md hover:bg-purple-700 mr-2"
+              >
+                Download JSON
+              </button>
+              <button
+                onClick={() => handleDownload("csv")}
+                className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700"
+              >
+                Download CSV
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Display ScoutAI or Events API images and Process button */}
+        {(activeMode === "scoutai" || activeMode === "events") && images.length > 0 && !isLoading && (
+          <div className="mt-6">
+            <div className="flex justify-between items-center mb-4">
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-medium">
+                  {activeMode === "events" ? "Events" : "Images"} ({images.length})
+                </h2>
+
+                {/* Select all checkbox */}
+                <div className="ml-4 flex items-center">
+                  <input
+                    type="checkbox"
+                    id="select-all"
+                    checked={selectedImages.length === images.length && images.length > 0}
+                    onChange={toggleAllImages}
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <label htmlFor="select-all" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                    Select All
+                  </label>
+                  {selectedImages.length > 0 && (
+                    <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                      ({selectedImages.length} selected)
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {/* Process with selected model button - only show when images are selected */}
+                {!isProcessing && selectedImages.length > 0 && (
+                  <button
+                    onClick={handleProcessImages}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                    disabled={!prompt}
+                  >
+                    Process {selectedImages.length} Selected
+                    {isDevMode ? ` with ${getFriendlyModelName(selectedModel)}` : ""}
+                  </button>
+                )}
+
+                {/* Pagination controls */}
+                {pagination && pagination.totalPages > 1 && (
+                  <div className="flex items-center gap-2 ml-4">
+                    <button
+                      className="px-2 py-1 border rounded-l-md text-sm flex items-center justify-center disabled:opacity-50"
+                      onClick={() => handlePageChange(pagination.currentPage - 1)}
+                      disabled={pagination.currentPage <= 1 || isLoading || isProcessing}
+                      aria-label="Previous page"
+                    >
+                      ←
+                    </button>
+                    <span className="px-3 py-1 border-t border-b text-sm">
+                      {pagination.currentPage} / {pagination.totalPages}
+                    </span>
+                    <button
+                      className="px-2 py-1 border rounded-r-md text-sm flex items-center justify-center disabled:opacity-50"
+                      onClick={() => handlePageChange(pagination.currentPage + 1)}
+                      disabled={pagination.currentPage >= pagination.totalPages || isLoading || isProcessing}
+                      aria-label="Next page"
+                    >
+                      →
+                    </button>
                   </div>
                 )}
-
-                <details className="mt-2">
-                  <summary className="cursor-pointer text-blue-600 dark:text-blue-400">View Full Response</summary>
-                  <pre className="mt-2">{JSON.stringify(apiResponse, null, 2)}</pre>
-                </details>
-              </div>
-            </div>
-          )}
-
-          {isDevMode && (
-            <div className="mt-4">
-              <h4 className="font-medium mb-1">Troubleshooting Tips:</h4>
-              <ul className="list-disc pl-5 text-sm">
-                <li>Verify your Company ID and Task ID are correct</li>
-                <li>Check that the date is valid and has images available</li>
-                <li>Try a different page number if available</li>
-                <li>Check the console logs for more detailed error information</li>
-                <li>Ensure your API keys are valid and have sufficient credits</li>
-              </ul>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Display processing stats if available - only in dev mode */}
-      {stats.processedCount > 0 && isDevMode && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6 mt-6">
-          <h3 className="text-lg font-medium mb-2">Processing Summary</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <p>
-                <strong>Images processed:</strong> {stats.processedCount} of {stats.totalFetched}
-              </p>
-              <p>
-                <strong>Model used:</strong> {getFriendlyModelName(stats.modelUsed)}
-              </p>
-            </div>
-            <div>
-              <p>
-                <strong>Token usage:</strong> {stats.totalTokens.toLocaleString()} (Prompt:{" "}
-                {stats.promptTokens.toLocaleString()}, Completion: {stats.completionTokens.toLocaleString()})
-              </p>
-            </div>
-          </div>
-
-          {/* Pricing information */}
-          <div className="mt-2 p-3 bg-gray-50 dark:bg-gray-700 rounded-md">
-            <h4 className="text-sm font-medium mb-1">Estimated Cost</h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm">
-              <div>
-                <p>Input: ${pricing.inputCost}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  (${stats.modelUsed === "gemini" ? "0.15" : "0.40"} / 1M tokens)
-                </p>
-              </div>
-              <div>
-                <p>Output: ${pricing.outputCost}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  (${stats.modelUsed === "gemini" ? "0.60" : "1.60"} / 1M tokens)
-                </p>
-              </div>
-              <div>
-                <p className="font-medium">Total: ${pricing.totalCost}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-4">
-            <button
-              onClick={() => handleDownload("json")}
-              className="px-3 py-1 bg-purple-600 text-white rounded-md hover:bg-purple-700 mr-2"
-            >
-              Download JSON
-            </button>
-            <button
-              onClick={() => handleDownload("csv")}
-              className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700"
-            >
-              Download CSV
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Display ScoutAI or Events API images and Process button */}
-      {(activeMode === "scoutai" || activeMode === "events") && images.length > 0 && !isLoading && (
-        <div className="mt-6">
-          <div className="flex justify-between items-center mb-4">
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl font-medium">
-                {activeMode === "events" ? "Events" : "Images"} ({images.length})
-              </h2>
-
-              {/* Select all checkbox */}
-              <div className="ml-4 flex items-center">
-                <input
-                  type="checkbox"
-                  id="select-all"
-                  checked={selectedImages.length === images.length && images.length > 0}
-                  onChange={toggleAllImages}
-                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <label htmlFor="select-all" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                  Select All
-                </label>
-                {selectedImages.length > 0 && (
-                  <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
-                    ({selectedImages.length} selected)
-                  </span>
-                )}
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              {/* Process with selected model button - only show when images are selected */}
-              {!isProcessing && selectedImages.length > 0 && (
-                <button
-                  onClick={handleProcessImages}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                  disabled={!prompt}
-                >
-                  Process {selectedImages.length} Selected
-                  {isDevMode ? ` with ${getFriendlyModelName(selectedModel)}` : ""}
-                </button>
-              )}
+            {/* Image grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+              {images.map((item, index) => {
+                // Find the corresponding result if it exists
+                const result = results.find((r) => r.image === item.image) || {}
+                // Merge the result with the original item to preserve selection state
+                const displayItem = { ...item, ...result }
 
-              {/* Pagination controls */}
-              {pagination && pagination.totalPages > 1 && (
-                <div className="flex items-center gap-2 ml-4">
+                // Sanitize error messages for non-dev mode
+                let displayLabel = displayItem.label
+                if (!isDevMode && displayItem.error) {
+                  displayLabel = sanitizeErrorMessage(displayLabel)
+                }
+
+                return (
+                  <div
+                    key={index}
+                    className={`bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden ${
+                      displayItem.error ? "border-red-300 dark:border-red-700 border-2" : ""
+                    } ${selectedImages.includes(index) ? "ring-2 ring-blue-500" : ""}`}
+                  >
+                    <div className="relative w-full h-60 cursor-pointer" onClick={() => toggleImageSelection(index)}>
+                      {/* Serial number badge */}
+                      <div className="absolute top-2 left-2 bg-black bg-opacity-70 text-white px-2 py-1 rounded-md text-xs font-medium z-10">
+                        #{displayItem.serialNumber}
+                      </div>
+
+                      {/* Selection checkbox */}
+                      <div className="absolute top-2 right-2 z-10" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={selectedImages.includes(index)}
+                          onChange={() => toggleImageSelection(index)}
+                          className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                      </div>
+
+                      {displayItem.image && displayItem.image.startsWith("http") ? (
+                        <Image
+                          src={displayItem.image || "/placeholder.svg"}
+                          alt={`Image ${displayItem.serialNumber}`}
+                          fill
+                          className="object-fill"
+                          unoptimized
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-700">
+                          <p className="text-sm text-gray-500 dark:text-gray-400">{displayItem.image || "No image"}</p>
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-4">
+                      {/* Show event details if available */}
+                      {displayItem.eventData && false && (
+                        <div className="mb-2">
+                          <p className="text-sm font-medium">{displayItem.eventData.title || "Event"}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {new Date(displayItem.eventData.createdAt).toLocaleString()}
+                          </p>
+                          {displayItem.eventData.metadata && (
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              {displayItem.eventData.metadata.location ||
+                                displayItem.eventData.metadata.locationId ||
+                                ""}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {displayItem.processed ? (
+                        <>
+                          <p className="text-sm">
+                            <strong>Label:</strong>{" "}
+                            {isDevMode && displayItem.error && displayItem.detailedError
+                              ? displayItem.detailedError
+                              : displayLabel}
+                          </p>
+                          {displayItem.modelUsed && isDevMode && (
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              Processed with: {getFriendlyModelName(displayItem.modelUsed)}
+                            </p>
+                          )}
+                        </>
+                      ) : (
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Not processed yet</p>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Bottom pagination controls */}
+            {pagination && pagination.totalPages > 1 && (
+              <div className="flex justify-center mt-6">
+                <div className="flex items-center gap-2">
                   <button
                     className="px-2 py-1 border rounded-l-md text-sm flex items-center justify-center disabled:opacity-50"
                     onClick={() => handlePageChange(pagination.currentPage - 1)}
@@ -1239,200 +1362,83 @@ export default function Dashboard() {
                     →
                   </button>
                 </div>
-              )}
-            </div>
-          </div>
-
-          {/* Image grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-            {images.map((item, index) => {
-              // Find the corresponding result if it exists
-              const result = results.find((r) => r.image === item.image) || {}
-              // Merge the result with the original item to preserve selection state
-              const displayItem = { ...item, ...result }
-
-              // Sanitize error messages for non-dev mode
-              let displayLabel = displayItem.label
-              if (!isDevMode && displayItem.error) {
-                displayLabel = sanitizeErrorMessage(displayLabel)
-              }
-
-              return (
-                <div
-                  key={index}
-                  className={`bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden ${
-                    displayItem.error ? "border-red-300 dark:border-red-700 border-2" : ""
-                  } ${selectedImages.includes(index) ? "ring-2 ring-blue-500" : ""}`}
-                >
-                  <div className="relative w-full h-60 cursor-pointer" onClick={() => toggleImageSelection(index)}>
-                    {/* Serial number badge */}
-                    <div className="absolute top-2 left-2 bg-black bg-opacity-70 text-white px-2 py-1 rounded-md text-xs font-medium z-10">
-                      #{displayItem.serialNumber}
-                    </div>
-
-                    {/* Selection checkbox */}
-                    <div className="absolute top-2 right-2 z-10" onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="checkbox"
-                        checked={selectedImages.includes(index)}
-                        onChange={() => toggleImageSelection(index)}
-                        className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                    </div>
-
-                    {displayItem.image && displayItem.image.startsWith("http") ? (
-                      <Image
-                        src={displayItem.image || "/placeholder.svg"}
-                        alt={`Image ${displayItem.serialNumber}`}
-                        fill
-                        className="object-fill"
-                        unoptimized
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-700">
-                        <p className="text-sm text-gray-500 dark:text-gray-400">{displayItem.image || "No image"}</p>
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-4">
-                    {/* Show event details if available */}
-                    {displayItem.eventData && false && (
-                      <div className="mb-2">
-                        <p className="text-sm font-medium">{displayItem.eventData.title || "Event"}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {new Date(displayItem.eventData.createdAt).toLocaleString()}
-                        </p>
-                        {displayItem.eventData.metadata && (
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            {displayItem.eventData.metadata.location || displayItem.eventData.metadata.locationId || ""}
-                          </p>
-                        )}
-                      </div>
-                    )}
-
-                    {displayItem.processed ? (
-                      <>
-                        <p className="text-sm">
-                          <strong>Label:</strong>{" "}
-                          {isDevMode && displayItem.error && displayItem.detailedError
-                            ? displayItem.detailedError
-                            : displayLabel}
-                        </p>
-                        {displayItem.modelUsed && isDevMode && (
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            Processed with: {getFriendlyModelName(displayItem.modelUsed)}
-                          </p>
-                        )}
-                      </>
-                    ) : (
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Not processed yet</p>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-
-          {/* Bottom pagination controls */}
-          {pagination && pagination.totalPages > 1 && (
-            <div className="flex justify-center mt-6">
-              <div className="flex items-center gap-2">
-                <button
-                  className="px-2 py-1 border rounded-l-md text-sm flex items-center justify-center disabled:opacity-50"
-                  onClick={() => handlePageChange(pagination.currentPage - 1)}
-                  disabled={pagination.currentPage <= 1 || isLoading || isProcessing}
-                  aria-label="Previous page"
-                >
-                  ←
-                </button>
-                <span className="px-3 py-1 border-t border-b text-sm">
-                  {pagination.currentPage} / {pagination.totalPages}
-                </span>
-                <button
-                  className="px-2 py-1 border rounded-r-md text-sm flex items-center justify-center disabled:opacity-50"
-                  onClick={() => handlePageChange(pagination.currentPage + 1)}
-                  disabled={pagination.currentPage >= pagination.totalPages || isLoading || isProcessing}
-                  aria-label="Next page"
-                >
-                  →
-                </button>
               </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Show manual results if any */}
-      {activeMode === "manual" && results.length > 0 && !isLoading && (
-        <div className="mt-6">
-          <h2 className="text-xl font-medium mb-4">Manual Upload Results</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-            {results.map((item, index) => {
-              // Sanitize error messages for non-dev mode
-              let displayLabel = item.label
-              if (!isDevMode && item.error) {
-                displayLabel = sanitizeErrorMessage(displayLabel)
-              }
-
-              return (
-                <div
-                  key={index}
-                  className={`bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden ${
-                    item.error ? "border-red-300 dark:border-red-700 border-2" : ""
-                  }`}
-                >
-                  <div className="relative w-full h-60">
-                    {item.objectURL ? (
-                      // Display uploaded file using object URL
-                      <Image
-                        src={item.objectURL || "/placeholder.svg"}
-                        alt={`Uploaded Image ${index + 1}`}
-                        fill
-                        className="object-cover"
-                        unoptimized
-                      />
-                    ) : item.image && item.image.startsWith("http") ? (
-                      // Display image from URL
-                      <Image
-                        src={item.image || "/placeholder.svg"}
-                        alt={`Image ${index + 1}`}
-                        fill
-                        className="object-cover"
-                        unoptimized
-                      />
-                    ) : (
-                      // Fallback display
-                      <div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-700">
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          {item.isUploadedFile ? `Uploaded: ${item.image}` : item.image || "Uploaded Image"}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-4">
-                    <p className="text-sm">
-                      <strong>Label:</strong>{" "}
-                      {isDevMode && item.error && item.detailedError ? item.detailedError : displayLabel}
-                    </p>
-                    {item.modelUsed && isDevMode && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        Processed with: {getFriendlyModelName(item.modelUsed)}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
+            )}
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Password modal for dev mode */}
-      <PasswordModal
-        isOpen={isPasswordModalOpen}
-        onClose={() => setIsPasswordModalOpen(false)}
-        onSubmit={handleDevModePassword}
-      />
-    </div>
+        {/* Show manual results if any */}
+        {activeMode === "manual" && results.length > 0 && !isLoading && (
+          <div className="mt-6">
+            <h2 className="text-xl font-medium mb-4">Manual Upload Results</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+              {results.map((item, index) => {
+                // Sanitize error messages for non-dev mode
+                let displayLabel = item.label
+                if (!isDevMode && item.error) {
+                  displayLabel = sanitizeErrorMessage(displayLabel)
+                }
+
+                return (
+                  <div
+                    key={index}
+                    className={`bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden ${
+                      item.error ? "border-red-300 dark:border-red-700 border-2" : ""
+                    }`}
+                  >
+                    <div className="relative w-full h-60">
+                      {item.objectURL ? (
+                        // Display uploaded file using object URL
+                        <Image
+                          src={item.objectURL || "/placeholder.svg"}
+                          alt={`Uploaded Image ${index + 1}`}
+                          fill
+                          className="object-cover"
+                          unoptimized
+                        />
+                      ) : item.image && item.image.startsWith("http") ? (
+                        // Display image from URL
+                        <Image
+                          src={item.image || "/placeholder.svg"}
+                          alt={`Image ${index + 1}`}
+                          fill
+                          className="object-cover"
+                          unoptimized
+                        />
+                      ) : (
+                        // Fallback display
+                        <div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-700">
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                            {item.isUploadedFile ? `Uploaded: ${item.image}` : item.image || "Uploaded Image"}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-4">
+                      <p className="text-sm">
+                        <strong>Label:</strong>{" "}
+                        {isDevMode && item.error && item.detailedError ? item.detailedError : displayLabel}
+                      </p>
+                      {item.modelUsed && isDevMode && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          Processed with: {getFriendlyModelName(item.modelUsed)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Password modal for dev mode */}
+        <PasswordModal
+          isOpen={isPasswordModalOpen}
+          onClose={() => setIsPasswordModalOpen(false)}
+          onSubmit={handleDevModePassword}
+        />
+      </div>
+    </main>
   )
 }

@@ -281,7 +281,9 @@ export async function callGemini(prompt, base64Image, imageSource) {
     // Create the system prompt and user prompt
     const systemPrompt =
       "You are a visual analysis assistant examining images from a restaurant or food service environment."
-    const fullPrompt = `${systemPrompt}\n\n${prompt}`
+    // const fullPrompt = `${systemPrompt}\n\n${prompt}`
+    const fullPrompt = `${prompt}`
+
 
     // Generate content with the image
     const result = await model.generateContent([fullPrompt, imagePart])
