@@ -409,42 +409,46 @@ export default function DashboardForm({
                   className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
                 />
               </div>
-
-              <div className="space-y-2">
-                <label htmlFor="limit" className="block text-sm font-medium">
-                  Images Per Page
-                </label>
-                <input
-                  id="limit"
-                  name="limit"
-                  type="number"
-                  min="1"
-                  defaultValue="12"
-                  className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                  required
-                />
-              </div>
             </div>
 
             <div className="flex items-center justify-between">
-              <div className="space-y-2">
-                <label htmlFor="page" className="block text-sm font-medium">
-                  Page
-                </label>
-                <div className="flex items-center gap-2">
+              <div className="flex gap-4 items-end">
+                <div className="space-y-2">
+                  <label htmlFor="page" className="block text-sm font-medium">
+                    Page
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      id="page"
+                      name="page"
+                      type="number"
+                      min="1"
+                      defaultValue={currentPage.toString()}
+                      className="w-20 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                      required
+                    />
+                    <span className="text-sm text-gray-500 dark:text-gray-400">of {totalPages || 1}</span>
+                    {isDevMode && (
+                      <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">
+                        (API page: {currentPage - 1})
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="limit" className="block text-sm font-medium">
+                    Per Page
+                  </label>
                   <input
-                    id="page"
-                    name="page"
+                    id="limit"
+                    name="limit"
                     type="number"
                     min="1"
-                    defaultValue={currentPage.toString()}
+                    defaultValue="12"
                     className="w-20 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
                     required
                   />
-                  <span className="text-sm text-gray-500 dark:text-gray-400">of {totalPages || 1}</span>
-                  {isDevMode && (
-                    <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">(API page: {currentPage - 1})</span>
-                  )}
                 </div>
               </div>
 
