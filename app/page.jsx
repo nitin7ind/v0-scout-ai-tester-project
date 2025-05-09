@@ -272,6 +272,7 @@ export default function Dashboard() {
       return
     }
 
+    // Validate prompt only when processing images
     if (!prompt) {
       setError(
         isDevMode
@@ -452,7 +453,7 @@ export default function Dashboard() {
       // For manual mode, we need a prompt
       const promptValue = formData.get("prompt")
       if (!promptValue) {
-        setError("Please select a prompt for analysis.")
+        setError(isDevMode ? "Please select a prompt for analysis." : "Something went wrong. Please try again.")
         return
       }
       handleManualAnalyze(formData)
@@ -473,6 +474,7 @@ export default function Dashboard() {
       }
     } else {
       // For Scout AI API, we don't need a prompt to fetch images
+      // Remove any prompt validation here - prompt is only needed for processing
       handleFetchImages(formData)
     }
   }

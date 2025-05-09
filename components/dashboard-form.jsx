@@ -69,6 +69,7 @@ export default function DashboardForm({
   const currentDate = getCurrentDate()
   const yesterdayDate = getYesterdayDate()
   const [companyId, setCompanyId] = useState("")
+  const [error, setError] = useState(null)
 
   // Check for company ID in URL on component mount
   useEffect(() => {
@@ -119,12 +120,21 @@ export default function DashboardForm({
     e.preventDefault()
     const form = e.currentTarget
     const formData = new FormData(form)
+    const inputType = formData.get("input_type")
 
     // Ensure the correct prompt is submitted
     formData.set("prompt", prompt)
 
     // Add model type to form data
     formData.set("model_type", modelType)
+
+    // Only validate prompt for manual mode, not for scoutai or events
+    if (inputType === "manual") {
+      if (!prompt) {
+        setError("Please select a prompt for analysis.")
+        return
+      }
+    }
 
     await onSubmit(formData)
   }
