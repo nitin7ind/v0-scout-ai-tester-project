@@ -147,7 +147,7 @@ export default function ResultsDisplay({ results, stats, onDownload, pagination,
                 item.error ? "border-red-300 dark:border-red-700 border-2" : ""
               }`}
             >
-              <div className="relative w-full h-48">
+              <div className="relative w-full h-60">
                 {item.image && item.image.startsWith("http") ? (
                   <Image
                     src={item.image || "/placeholder.svg"}

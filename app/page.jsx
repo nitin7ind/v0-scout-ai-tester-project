@@ -1213,7 +1213,7 @@ export default function Dashboard() {
                     displayItem.error ? "border-red-300 dark:border-red-700 border-2" : ""
                   } ${selectedImages.includes(index) ? "ring-2 ring-blue-500" : ""}`}
                 >
-                  <div className="relative w-full h-48 cursor-pointer" onClick={() => toggleImageSelection(index)}>
+                  <div className="relative w-full h-60 cursor-pointer" onClick={() => toggleImageSelection(index)}>
                     {/* Serial number badge */}
                     <div className="absolute top-2 left-2 bg-black bg-opacity-70 text-white px-2 py-1 rounded-md text-xs font-medium z-10">
                       #{displayItem.serialNumber}
@@ -1320,7 +1320,7 @@ export default function Dashboard() {
                   item.error ? "border-red-300 dark:border-red-700 border-2" : ""
                 }`}
               >
-                <div className="relative w-full h-48">
+                <div className="relative w-full h-60">
                   {item.objectURL ? (
                     // Display uploaded file using object URL
                     <Image
