@@ -114,6 +114,11 @@ export default function DashboardForm({
       formData.set("env", "prod")
     }
 
+    // Ensure company ID is included if it's from URL
+    if (companyIdFromUrl) {
+      formData.set("company_id", companyId)
+    }
+
     await onSubmit(formData)
   }
 
@@ -144,7 +149,7 @@ export default function DashboardForm({
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4" method="post">
         <div className="space-y-2">
           <label htmlFor="task" className="block text-sm font-medium">
             Select Prompt

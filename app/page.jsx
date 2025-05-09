@@ -106,6 +106,14 @@ export default function Dashboard() {
             const form = formRef.current
             if (form) {
               const formData = new FormData(form)
+
+              // Get company ID from URL if present
+              const urlParams = new URLSearchParams(window.location.search)
+              const companyParam = urlParams.get("company")
+              if (companyParam) {
+                formData.set("company_id", companyParam)
+              }
+
               handleFormSubmit(formData)
             }
           }, 500)
@@ -417,6 +425,9 @@ export default function Dashboard() {
       resetState(inputType)
     }
 
+    // Preserve dev mode
+    const currentDevMode = isDevMode
+
     if (inputType === "manual") {
       handleManualAnalyze(formData)
     } else if (inputType === "events") {
@@ -437,6 +448,9 @@ export default function Dashboard() {
     } else {
       handleFetchImages(formData)
     }
+
+    // Restore dev mode
+    setIsDevMode(currentDevMode)
   }
 
   // Validate Events API key
@@ -921,6 +935,7 @@ export default function Dashboard() {
           e.preventDefault()
           handleFormSubmit(new FormData(e.target))
         }}
+        method="post"
       >
         <DashboardForm
           onSubmit={handleFormSubmit}
