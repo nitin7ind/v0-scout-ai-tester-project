@@ -136,6 +136,9 @@ export default function DashboardForm({
       }
     }
 
+    // Clear any previous errors
+    setError(null)
+
     await onSubmit(formData)
   }
 
@@ -177,7 +180,6 @@ export default function DashboardForm({
             value={selectedTask}
             onChange={(e) => setSelectedTask(e.target.value)}
             className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-            required
           >
             <option value="custom">Custom Prompt</option>
             {tasksData.tasks.map((task) => (
@@ -204,7 +206,6 @@ export default function DashboardForm({
               selectedTask !== "custom" && "bg-gray-50 dark:bg-gray-800",
             )}
             readOnly={selectedTask !== "custom"}
-            required
           />
           <input type="hidden" name="prompt" value={prompt} />
         </div>
@@ -682,10 +683,16 @@ export default function DashboardForm({
           </div>
         )}
 
+        {/* Display error message if any */}
+        {error && (
+          <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-red-600 dark:text-red-400">
+            {error}
+          </div>
+        )}
+
         <button
           type="submit"
           className="w-full py-2 px-4 border border-blue-600 dark:border-blue-500 text-blue-600 dark:text-blue-400 font-medium rounded-md bg-transparent hover:bg-blue-50 dark:hover:bg-blue-900/20"
-          disabled={inputType === "manual" && !selectedTask}
         >
           {inputType === "scoutai" ? "Fetch Images" : "Analyze"}
         </button>
