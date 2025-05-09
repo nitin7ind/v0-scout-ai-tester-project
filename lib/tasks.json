@@ -1,34 +1,14 @@
 {
   "tasks": [
     {
-      "id": "table-clean",
-      "name": "Table clean",
-      "prompt": "Analyze this image of restaurant tables and determine if they are clean or not. Describe any visible debris, stains, or mess. If food is present on the table with a person sitting, then its table occupied.  Consider Occupied table to be clean. Reply with Clean or Not Clean or Occupied. Nothing else."
-    },
-    {
-      "id": "table-clean-desc",
-      "name": "Table clean (with Description)",
-      "prompt": "Analyze this image of restaurant tables and determine if they are clean or not. Describe any visible debris, stains, or mess. If food is present on the table with a person sitting, then its table occupied. Reply with Clean, Not Clean or Occupied. Give 1 liner explanation too."
-    },
-    {
-      "id": "empty-bins",
-      "name": "Empty bins",
-      "prompt": "For compliance, you must detect if any bin is empty or running low. Identify all visible food bins and classify each as: Full (any food visibly present and the metal bottom of the bin is not clearly visible, even if the surface is uneven or a spoon is placed), Partial (only if the bin has large empty areas and the metal bottom is visible in at least one-third of the bin), or Empty (almost no food is visible and the bottom is mostly exposed). Spoons, prongs, shadows, and food gaps should be ignored when judging fullness. Be lenient: if food is covering most of the bin even with uneven surface, it is Full. Then apply this logic: If all bins are Full, return 'Full'. If even one bin is Empty, or if two or more bins are Partial, return 'Empty'. Output only one word: 'Full' or 'Empty'. No explanation or extra text."
-    },
-    {
-      "id": "empty-bins-v2",
-      "name": "Empty bins V2",
-      "prompt": "Analyze the image to determine if each individual bin/container is full or empty based on the presence of food items. Consider a bin 'full' if it contains any visible food. Consider a bin 'empty' only if there is no food visible within it. Ignore any spoons, prongs, or shadows when assessing the presence of food. Even if 1 container is empty, consider final response to be empty.Reply in only a single word: Full or Empty."
+      "id": "smartsafe-enclosure-open",
+      "name": "SmartSafe Enclosure Open",
+      "prompt": "You are a visual analysis assistant examining overhead images of a food prep counter at a QSR (Quick Service Restaurant). Analyse this image for a manager's counter in kitchen to check if the SmartSafe enclosure door is open or closed. If the door is open, the SmartSafe digital screen will likely be visible. The enclosure is a silver block near the floor. If the door is open, Return Enclosure Open or else return Enclosure Closed. Don't return anything else."
     },
     {
       "id": "door-blocked",
       "name": "Door Blocked",
       "prompt": "You are an image analysis expert specializing in retail safety and compliance. Analyze the provided image and focus on all visible doorways. Determine whether any door is blocked, defined as having objects, equipment, or obstructions that would prevent it from opening fully or being used as an exit. Ignore minor items that clearly do not impede access or egress. If any door is visibly blocked, respond with Door Blocked. If all doors are clear and accessible, respond with Door Not Blocked. Your response must be only one of the two phrases Door Blocked or Door Not Blocked with no additional explanation."
-    },
-    {
-      "id": "unattended-cash",
-      "name": "Unattended Cash",
-      "prompt": "You are an image analysis expert specializing in retail and cash handling inspection. Analyze the provided image and focus on the counter area. Determine whether any cash (U.S. dollars) is visibly left on the counter. Ignore any cash that is clearly being held in someone's hand or already placed inside a cash till. If any cash is visible on the counter and not in hand or in the cash till, respond with Cash Visible. If no such cash is found, respond with No Cash Visible. Your response must be only one of the two phrases Cash Visible or No Cash Visible with no additional explanation."
     },
     {
       "id": "open-drink-container",
@@ -41,9 +21,9 @@
       "prompt": "You are a visual analysis assistant examining overhead images of a food preparation counter at a Quick Service Restaurant (QSR). Focus on the product display tray typically used for items like snacks or condiments. If the tray is empty and the bottom is clearly visible, return Product Display Empty. If the tray contains products and the bottom is not visible, return Product Display Full. Return only one of these two phrases with no additional text."
     },
     {
-      "id": "smartsafe-enclosure-open",
-      "name": "SmartSafe Enclosure Open",
-      "prompt": "You are a visual analysis assistant examining overhead images of a food prep counter at a QSR (Quick Service Restaurant). Analyse this image for a manager's counter in kitchen to check if the SmartSafe enclosure door is open or closed. If the door is open, the SmartSafe digital screen will likely be visible. The enclosure is a silver block near the floor. If the door is open, Return Enclosure Open or else return Enclosure Closed. Don't return anything else."
+      "id": "table-clean",
+      "name": "Table clean",
+      "prompt": "Analyze this image of restaurant tables and determine if they are clean or not. Describe any visible debris, stains, or mess. If food is present on the table with a person sitting, then its table occupied.  Consider Occupied table to be clean. Reply with Clean or Not Clean or Occupied. Nothing else."
     }
   ]
 }
