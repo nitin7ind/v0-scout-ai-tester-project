@@ -140,7 +140,7 @@ export default function DashboardForm({
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
           <label htmlFor="task" className="block text-sm font-medium">
-            Select Task
+            Select Prompt
           </label>
           <select
             id="task"
