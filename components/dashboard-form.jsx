@@ -259,17 +259,6 @@ export default function DashboardForm({
             <div className="flex items-center space-x-2">
               <input
                 type="radio"
-                id="manual"
-                name="input_type"
-                value="manual"
-                checked={inputType === "manual"}
-                onChange={() => handleInputTypeChange("manual")}
-              />
-              <label htmlFor="manual">Manual Upload or URL</label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <input
-                type="radio"
                 id="scoutai"
                 name="input_type"
                 value="scoutai"
@@ -277,6 +266,17 @@ export default function DashboardForm({
                 onChange={() => handleInputTypeChange("scoutai")}
               />
               <label htmlFor="scoutai">ScoutAI API</label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="radio"
+                id="manual"
+                name="input_type"
+                value="manual"
+                checked={inputType === "manual"}
+                onChange={() => handleInputTypeChange("manual")}
+              />
+              <label htmlFor="manual">Manual Upload or URL</label>
             </div>
             <div className="flex items-center space-x-2">
               <input
@@ -661,7 +661,7 @@ export default function DashboardForm({
         <button
           type="submit"
           className="w-full py-2 px-4 border border-blue-600 dark:border-blue-500 text-blue-600 dark:text-blue-400 font-medium rounded-md bg-transparent hover:bg-blue-50 dark:hover:bg-blue-900/20"
-          disabled={inputType !== "scoutai" && !selectedTask}
+          disabled={inputType === "manual" && !selectedTask}
         >
           {inputType === "scoutai" ? "Fetch Images" : "Analyze"}
         </button>

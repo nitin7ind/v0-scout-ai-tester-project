@@ -371,7 +371,7 @@ export default function Dashboard() {
         promptTokens: response.promptTokens || 0,
         completionTokens: response.completionTokens || 0,
         totalTokens: response.totalTokens || 0,
-        modelUsed: response.modelUsed || selectedModel,
+        modelUsed: selectedModel,
       })
     } catch (error) {
       console.error("Error analyzing images:", error)
@@ -429,6 +429,12 @@ export default function Dashboard() {
     }
 
     if (inputType === "manual") {
+      // For manual mode, we need a prompt
+      const promptValue = formData.get("prompt")
+      if (!promptValue) {
+        setError("Please select a prompt for analysis.")
+        return
+      }
       handleManualAnalyze(formData)
     } else if (inputType === "events") {
       // For Events API, we need to handle API key validation first
@@ -446,6 +452,7 @@ export default function Dashboard() {
         validateEventsApiKey(apiKey, env)
       }
     } else {
+      // For Scout AI API, we don't need a prompt to fetch images
       handleFetchImages(formData)
     }
   }
