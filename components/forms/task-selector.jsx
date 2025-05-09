@@ -52,22 +52,11 @@ export default function TaskSelector({
           <option value="" disabled>
             Select a task...
           </option>
-          {/* SmartSafe Enclosure Open at the top */}
-          {tasksData.tasks
-            .filter((task) => task.name === "SmartSafe Enclosure Open")
-            .map((task) => (
-              <option key={task.id} value={task.id}>
-                {task.name}
-              </option>
-            ))}
-          {/* All other tasks */}
-          {tasksData.tasks
-            .filter((task) => task.name !== "SmartSafe Enclosure Open")
-            .map((task) => (
-              <option key={task.id} value={task.id}>
-                {task.name}
-              </option>
-            ))}
+          {tasksData.tasks.map((task) => (
+            <option key={task.id} value={task.id}>
+              {task.name}
+            </option>
+          ))}
           <option value="custom">Custom Prompt</option>
         </select>
       </div>
