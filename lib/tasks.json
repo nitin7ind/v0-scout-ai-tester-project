@@ -8,7 +8,7 @@
     {
       "id": "door-blocked",
       "name": "Door Blocked",
-      "prompt": "You are an image analysis expert specializing in retail safety and compliance. Analyze the provided image and focus on all visible doorways. Determine whether any door is blocked, defined as having objects, equipment, or obstructions that would prevent it from opening fully or being used as an exit. Ignore minor items that clearly do not impede access or egress. If any door is visibly blocked, respond with Door Blocked. If all doors are clear and accessible, respond with Door Not Blocked. Your response must be only one of the two phrases Door Blocked or Door Not Blocked with no additional explanation."
+      "prompt": "You are an image analysis expert specializing in retail safety and compliance. Analyze the provided image and focus on all visible doorways. Determine whether any door is blocked, defined as having objects, equipment, or obstructions that would prevent it from opening fully or being used as an exit. Ignore minor items that clearly do not impede access or egress. Note that there might be features present as a part of the floor too. If any door is visibly blocked, respond with Door Blocked. If all doors are clear and accessible, respond with Door Not Blocked. Your response must be only one of the two phrases Door Blocked or Door Not Blocked with no additional explanation."
     },
     {
       "id": "open-drink-container",
