@@ -1,7 +1,7 @@
 "use server"
 
 import { OpenAI } from "openai"
-import { GoogleGenerativeAI } from "@google-generative-ai"
+import { GoogleGenerativeAI } from "@google/generative-ai"
 import { makeSerializable } from "./utils"
 
 // Initialize OpenAI client
@@ -106,7 +106,7 @@ export async function processImagesWithGPT(
           const errorImage = {
             ...imageToProcess,
             processed: true,
-            label: `Error: ${error.message || "Failed to process image"}`,
+            label: `Error: Something went wrong. Please try again.`,
             error: true,
             modelUsed: modelType,
           }
@@ -158,7 +158,7 @@ export async function getLabelFromImageUrlWithGPT(imageUrl, prompt) {
     if (!imgResponse.ok) {
       const errorText = await imgResponse.text()
       console.error(`Failed to fetch image (${imgResponse.status}): ${errorText}`)
-      throw new Error(`Failed to fetch image: ${imgResponse.status}`)
+      throw new Error(`Something went wrong. Please try again.`)
     }
 
     const arrayBuffer = await imgResponse.arrayBuffer()
@@ -170,7 +170,7 @@ export async function getLabelFromImageUrlWithGPT(imageUrl, prompt) {
     return await callGpt(prompt, imageDataUri, imageUrl)
   } catch (error) {
     console.error("Error processing image URL with GPT:", error)
-    throw new Error(`Error processing image`)
+    throw new Error(`Something went wrong. Please try again.`)
   }
 }
 
@@ -183,7 +183,7 @@ export async function getLabelFromImageUrlWithGemini(imageUrl, prompt) {
     if (!imgResponse.ok) {
       const errorText = await imgResponse.text()
       console.error(`Failed to fetch image (${imgResponse.status}): ${errorText}`)
-      throw new Error(`Failed to fetch image: ${imgResponse.status}`)
+      throw new Error(`Something went wrong. Please try again.`)
     }
 
     const arrayBuffer = await imgResponse.arrayBuffer()
@@ -194,7 +194,7 @@ export async function getLabelFromImageUrlWithGemini(imageUrl, prompt) {
     return await callGemini(prompt, base64Image, imageUrl)
   } catch (error) {
     console.error("Error processing image URL with Gemini:", error)
-    throw new Error(`Error processing image`)
+    throw new Error(`Something went wrong. Please try again.`)
   }
 }
 
@@ -211,7 +211,7 @@ export async function callGpt(prompt, imageDataUri, imageSource) {
         {
           role: "system",
           content:
-            "You are a visual analysis assistant examining images from a restaurant or food service environment. Reply in max 3-4 words, unless user explicitly asks to explain. You will only answer related to the image, and won't answer anything without the image context.",
+            "You are a visual analysis assistant examining images from a restaurant or food service environment.",
         },
         {
           role: "user",
@@ -238,7 +238,7 @@ export async function callGpt(prompt, imageDataUri, imageSource) {
     }
   } catch (error) {
     console.error("Error calling GPT:", error)
-    throw new Error(`Error processing image`)
+    throw new Error(`Something went wrong. Please try again.`)
   }
 }
 
@@ -250,7 +250,7 @@ export async function callGemini(prompt, base64Image, imageSource) {
 
     // Check if API key is available
     if (!process.env.GOOGLE_API_KEY) {
-      throw new Error("Google API key is not configured")
+      throw new Error("Something went wrong. Please try again.")
     }
 
     // Get the Gemini model
@@ -268,7 +268,7 @@ export async function callGemini(prompt, base64Image, imageSource) {
 
     // Create the system prompt and user prompt
     const systemPrompt =
-      "You are a visual analysis assistant examining images from a restaurant or food service environment. Reply in max 3-4 words, unless user explicitly asks to explain. You will only answer related to the image, and won't answer anything without the image context."
+      "You are a visual analysis assistant examining images from a restaurant or food service environment."
     const fullPrompt = `${systemPrompt}\n\n${prompt}`
 
     // Generate content with the image
@@ -300,6 +300,6 @@ export async function callGemini(prompt, base64Image, imageSource) {
     }
   } catch (error) {
     console.error("Error calling Gemini:", error)
-    throw new Error(`Error processing image`)
+    throw new Error(`Something went wrong. Please try again.`)
   }
 }
