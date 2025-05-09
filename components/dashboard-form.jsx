@@ -50,6 +50,7 @@ export default function DashboardForm({
   const currentDate = getCurrentDate()
   const yesterdayDate = getYesterdayDate()
   const [companyId, setCompanyId] = useState("")
+  const [companyIdFromUrl, setCompanyIdFromUrl] = useState(false)
 
   // Check for company ID in URL on component mount
   useEffect(() => {
@@ -58,6 +59,7 @@ export default function DashboardForm({
       const companyParam = urlParams.get("company")
       if (companyParam) {
         setCompanyId(companyParam)
+        setCompanyIdFromUrl(true)
       }
     }
   }, [])
@@ -106,6 +108,11 @@ export default function DashboardForm({
 
     // Add model type to form data
     formData.set("model_type", modelType)
+
+    // Set environment to production in normal mode
+    if (!isDevMode) {
+      formData.set("env", "prod")
+    }
 
     await onSubmit(formData)
   }
@@ -304,36 +311,44 @@ export default function DashboardForm({
 
         {inputType === "scoutai" && (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <label htmlFor="env" className="block text-sm font-medium">
-                  Environment
-                </label>
-                <select
-                  id="env"
-                  name="env"
-                  className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                  defaultValue="prod"
-                >
-                  <option value="prod">Production</option>
-                  <option value="staging">Staging</option>
-                </select>
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Only show environment in dev mode */}
+              {isDevMode && (
+                <div className="space-y-2">
+                  <label htmlFor="env" className="block text-sm font-medium">
+                    Environment
+                  </label>
+                  <select
+                    id="env"
+                    name="env"
+                    className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                    defaultValue="prod"
+                  >
+                    <option value="prod">Production</option>
+                    <option value="staging">Staging</option>
+                  </select>
+                </div>
+              )}
 
-              <div className="space-y-2">
-                <label htmlFor="company_id" className="block text-sm font-medium">
-                  Company ID
-                </label>
-                <input
-                  id="company_id"
-                  name="company_id"
-                  placeholder="Company ID"
-                  value={companyId}
-                  onChange={(e) => setCompanyId(e.target.value)}
-                  className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                  required
-                />
-              </div>
+              {/* Only show company ID if not passed in URL or in dev mode */}
+              {(!companyIdFromUrl || isDevMode) && (
+                <div className="space-y-2">
+                  <label htmlFor="company_id" className="block text-sm font-medium">
+                    Company ID
+                  </label>
+                  <input
+                    id="company_id"
+                    name="company_id"
+                    placeholder="Company ID"
+                    value={companyId}
+                    onChange={(e) => setCompanyId(e.target.value)}
+                    className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                    required
+                  />
+                </div>
+              )}
+              {/* Hidden input for company ID if passed in URL and not in dev mode */}
+              {companyIdFromUrl && !isDevMode && <input type="hidden" name="company_id" value={companyId} />}
 
               <div className="space-y-2">
                 <label htmlFor="location_id" className="block text-sm font-medium">
@@ -358,11 +373,19 @@ export default function DashboardForm({
                   required
                 >
                   <option value="">Select a task...</option>
-                  {scoutAITasks.map((task) => (
-                    <option key={task.id} value={task.id}>
-                      {task.name}
-                    </option>
-                  ))}
+                  {/* Reorder scoutAITasks to put SmartSafe Enclosure Open first */}
+                  {[...scoutAITasks]
+                    .sort((a, b) => {
+                      // Put SmartSafe Enclosure Open first
+                      if (a.name === "SmartSafe Enclosure Open") return -1
+                      if (b.name === "SmartSafe Enclosure Open") return 1
+                      return a.name.localeCompare(b.name)
+                    })
+                    .map((task) => (
+                      <option key={task.id} value={task.id}>
+                        {task.name}
+                      </option>
+                    ))}
                 </select>
               </div>
 
@@ -379,42 +402,47 @@ export default function DashboardForm({
                   required
                 />
               </div>
-
-              <div className="space-y-2">
-                <label htmlFor="limit" className="block text-sm font-medium">
-                  Images Per Page
-                </label>
-                <input
-                  id="limit"
-                  name="limit"
-                  type="number"
-                  min="1"
-                  defaultValue="12"
-                  className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                  required
-                />
-              </div>
             </div>
 
             <div className="flex items-center justify-between">
-              <div className="space-y-2">
-                <label htmlFor="page" className="block text-sm font-medium">
-                  Page
-                </label>
-                <div className="flex items-center gap-2">
+              <div className="flex items-center gap-4">
+                <div className="space-y-2">
+                  <label htmlFor="page" className="block text-sm font-medium">
+                    Page
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      id="page"
+                      name="page"
+                      type="number"
+                      min="1"
+                      defaultValue={currentPage.toString()}
+                      className="w-20 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                      required
+                    />
+                    <span className="text-sm text-gray-500 dark:text-gray-400">of {totalPages || 1}</span>
+                    {isDevMode && (
+                      <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">
+                        (API page: {currentPage - 1})
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Moved Images Per Page to be next to Page number */}
+                <div className="space-y-2">
+                  <label htmlFor="limit" className="block text-sm font-medium">
+                    Images Per Page
+                  </label>
                   <input
-                    id="page"
-                    name="page"
+                    id="limit"
+                    name="limit"
                     type="number"
                     min="1"
-                    defaultValue={currentPage.toString()}
+                    defaultValue="12"
                     className="w-20 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
                     required
                   />
-                  <span className="text-sm text-gray-500 dark:text-gray-400">of {totalPages || 1}</span>
-                  {isDevMode && (
-                    <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">(API page: {currentPage - 1})</span>
-                  )}
                 </div>
               </div>
 
