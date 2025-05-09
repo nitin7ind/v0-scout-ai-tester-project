@@ -13,6 +13,12 @@ function getDefaultFromDate() {
   return date.toISOString().split("T")[0]
 }
 
+// Find SmartSafe Enclosure Open task ID
+function getSmartSafeTaskId() {
+  const smartSafeTask = scoutAITasks.find((task) => task.name === "SmartSafe Enclosure Open")
+  return smartSafeTask ? smartSafeTask.id : ""
+}
+
 export default function DashboardForm({
   onSubmit,
   currentPage = 1,
@@ -51,6 +57,7 @@ export default function DashboardForm({
   const yesterdayDate = getYesterdayDate()
   const [companyId, setCompanyId] = useState("")
   const [companyIdFromUrl, setCompanyIdFromUrl] = useState(false)
+  const smartSafeTaskId = getSmartSafeTaskId()
 
   // Check for company ID in URL on component mount
   useEffect(() => {
@@ -104,7 +111,7 @@ export default function DashboardForm({
     const formData = new FormData(form)
 
     // Ensure the correct prompt is submitted
-    formData.set("prompt", prompt)
+    formData.set("prompt", prompt || "Default prompt for fetching images")
 
     // Add model type to form data
     formData.set("model_type", modelType)
@@ -117,6 +124,14 @@ export default function DashboardForm({
     // Ensure company ID is included if it's from URL
     if (companyIdFromUrl) {
       formData.set("company_id", companyId)
+    }
+
+    // Ensure task_id is set for ScoutAI mode
+    if (inputType === "scoutai") {
+      const taskId = formData.get("task_id")
+      if (!taskId || taskId === "") {
+        formData.set("task_id", smartSafeTaskId)
+      }
     }
 
     await onSubmit(formData)
@@ -187,7 +202,6 @@ export default function DashboardForm({
               selectedTask !== "custom" && "bg-gray-50 dark:bg-gray-800",
             )}
             readOnly={selectedTask !== "custom"}
-            required
           />
           <input type="hidden" name="prompt" value={prompt} />
         </div>
@@ -375,6 +389,7 @@ export default function DashboardForm({
                   id="task_id"
                   name="task_id"
                   className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                  defaultValue={smartSafeTaskId}
                   required
                 >
                   <option value="">Select a task...</option>
@@ -674,7 +689,6 @@ export default function DashboardForm({
         <button
           type="submit"
           className="w-full py-2 px-4 border border-blue-600 dark:border-blue-500 text-blue-600 dark:text-blue-400 font-medium rounded-md bg-transparent hover:bg-blue-50 dark:hover:bg-blue-900/20"
-          disabled={!selectedTask}
         >
           {inputType === "scoutai" ? "Fetch Images" : "Analyze"}
         </button>

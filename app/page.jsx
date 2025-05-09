@@ -99,6 +99,7 @@ export default function Dashboard() {
         )
 
         if (smartSafeOption) {
+          // Set the value in the select element
           taskIdSelect.value = smartSafeOption.value
 
           // Submit the form after a short delay to ensure all fields are properly initialized
@@ -113,6 +114,12 @@ export default function Dashboard() {
               if (companyParam) {
                 formData.set("company_id", companyParam)
               }
+
+              // Explicitly set the task_id in the form data
+              formData.set("task_id", smartSafeOption.value)
+
+              // Set a default prompt to avoid validation errors
+              formData.set("prompt", "Default prompt for fetching images")
 
               handleFormSubmit(formData)
             }
@@ -217,7 +224,16 @@ export default function Dashboard() {
     setApiCall("")
     setCurlCommand("")
     setApiResponse(null)
-    setPrompt(formData.get("prompt") || "")
+
+    // Store the prompt for later use in processing
+    const promptValue = formData.get("prompt") || ""
+    setPrompt(promptValue)
+
+    // Always ensure there's a prompt value for the API call
+    if (!formData.get("prompt") || formData.get("prompt").trim() === "") {
+      formData.set("prompt", "Default prompt for fetching images")
+    }
+
     setActiveMode("scoutai")
     setSelectedModel(formData.get("model_type") || "gpt")
 
@@ -270,6 +286,12 @@ export default function Dashboard() {
   const handleProcessImages = async () => {
     if (images.length === 0) {
       setError("No images to process. Please fetch images first.")
+      return
+    }
+
+    // Ensure we have a valid prompt for processing
+    if (!prompt || prompt.trim() === "" || prompt === "Default prompt for fetching images") {
+      setError("A valid prompt is required for processing images. Please enter a prompt in the form above.")
       return
     }
 
@@ -409,6 +431,11 @@ export default function Dashboard() {
       const formData = new FormData(form)
       formData.set("page", page.toString())
 
+      // Ensure we have a prompt value for the API call
+      if (!formData.get("prompt") || formData.get("prompt").trim() === "") {
+        formData.set("prompt", "Default prompt for fetching images")
+      }
+
       handleFetchImages(formData)
     } else if (activeMode === "events") {
       // For Events API, use the events page change handler
@@ -427,6 +454,28 @@ export default function Dashboard() {
 
     // Preserve dev mode
     const currentDevMode = isDevMode
+
+    // Ensure task_id is set for ScoutAI mode
+    if (inputType === "scoutai") {
+      const taskId = formData.get("task_id")
+      if (!taskId || taskId.trim() === "") {
+        // Try to get the SmartSafe option as a fallback
+        const taskIdSelect = document.getElementById("task_id")
+        if (taskIdSelect) {
+          const smartSafeOption = Array.from(taskIdSelect.options).find(
+            (option) => option.text === "SmartSafe Enclosure Open",
+          )
+          if (smartSafeOption) {
+            formData.set("task_id", smartSafeOption.value)
+          }
+        }
+      }
+
+      // Ensure we have a prompt value for the API call
+      if (!formData.get("prompt") || formData.get("prompt").trim() === "") {
+        formData.set("prompt", "Default prompt for fetching images")
+      }
+    }
 
     if (inputType === "manual") {
       handleManualAnalyze(formData)
@@ -899,7 +948,11 @@ export default function Dashboard() {
         <div className="flex items-center gap-2">
           {/* Calculator toggle */}
           <button
-            className={`p-1 rounded-md border ${showCalculator ? "border-green-500 text-green-500" : "border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400"}`}
+            className={`p-1 rounded-md border ${
+              showCalculator
+                ? "border-green-500 text-green-500"
+                : "border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400"
+            }`}
             onClick={toggleCalculator}
             title="Cost Calculator"
           >
@@ -908,7 +961,11 @@ export default function Dashboard() {
 
           {/* Dev mode toggle */}
           <button
-            className={`p-1 rounded-md border ${isDevMode ? "border-blue-500 text-blue-500" : "border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400"}`}
+            className={`p-1 rounded-md border ${
+              isDevMode
+                ? "border-blue-500 text-blue-500"
+                : "border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400"
+            }`}
             onClick={toggleDevModeModal}
             title={isDevMode ? "Developer Mode Active" : "Enable Developer Mode"}
           >
