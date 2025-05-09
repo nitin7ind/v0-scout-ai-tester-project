@@ -388,7 +388,7 @@ export default function DashboardForm({
                   name="limit"
                   type="number"
                   min="1"
-                  defaultValue="5"
+                  defaultValue="12"
                   className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
                   required
                 />
