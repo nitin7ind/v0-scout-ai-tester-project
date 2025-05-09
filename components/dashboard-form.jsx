@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { cn, getCurrentDate } from "@/lib/utils"
+import { cn, getCurrentDate, getYesterdayDate } from "@/lib/utils"
 import tasksData from "@/lib/tasks.json"
 import { scoutAITasks } from "@/lib/scout-ai-tasks"
 
@@ -48,6 +48,7 @@ export default function DashboardForm({
   const [prompt, setPrompt] = useState("")
   const [modelType, setModelType] = useState(isDevMode ? selectedModel : "gemini")
   const currentDate = getCurrentDate()
+  const yesterdayDate = getYesterdayDate()
   const [companyId, setCompanyId] = useState("")
 
   // Check for company ID in URL on component mount
@@ -373,7 +374,7 @@ export default function DashboardForm({
                   id="date"
                   name="date"
                   type="date"
-                  defaultValue={currentDate}
+                  defaultValue={yesterdayDate}
                   className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
                   required
                 />
@@ -621,7 +622,7 @@ export default function DashboardForm({
                       id="events_to_date"
                       name="events_to_date"
                       type="date"
-                      defaultValue={currentDate}
+                      defaultValue={yesterdayDate}
                       className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
                       required
                     />

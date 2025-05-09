@@ -53,7 +53,7 @@ export default function Dashboard() {
   const [selectedTask, setSelectedTask] = useState("")
   const [selectedCamera, setSelectedCamera] = useState("")
   const [eventsFromDate, setEventsFromDate] = useState(getDefaultFromDate())
-  const [eventsToDate, setEventsToDate] = useState(getCurrentDate())
+  const [eventsToDate, setEventsToDate] = useState(getYesterdayDate())
   const [eventsLimit, setEventsLimit] = useState(10)
   const [eventsPage, setEventsPage] = useState(0)
   const [totalEvents, setTotalEvents] = useState(0)
@@ -71,6 +71,16 @@ export default function Dashboard() {
     const year = today.getFullYear()
     const month = String(today.getMonth() + 1).padStart(2, "0")
     const day = String(today.getDate()).padStart(2, "0")
+    return `${year}-${month}-${day}`
+  }
+
+  // Helper function to get yesterday's date in YYYY-MM-DD format
+  function getYesterdayDate() {
+    const yesterday = new Date()
+    yesterday.setDate(yesterday.getDate() - 1)
+    const year = yesterday.getFullYear()
+    const month = String(yesterday.getMonth() + 1).padStart(2, "0")
+    const day = String(yesterday.getDate()).padStart(2, "0")
     return `${year}-${month}-${day}`
   }
 
