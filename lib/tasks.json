@@ -24,6 +24,11 @@
       "id": "table-clean",
       "name": "Table clean",
       "prompt": "Analyze this image of restaurant tables and determine if they are clean or not. Describe any visible debris, stains, or mess. If food is present on the table with a person sitting, then its table occupied.  Consider Occupied table to be clean. Reply with Clean or Not Clean or Occupied. Nothing else."
+    },
+    {
+      "id": "car-analysis",
+      "name": "Car Analysis",
+      "prompt": "You are an image analysis expert specializing in car industry in USA. Analyze the provided image and focus on the visible cars. For the car having the green bounding box around it, Mention its Make, Model and Color, separated by Comma. Don't return anything else."
     }
   ]
 }

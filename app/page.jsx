@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react"
 import { useTheme } from "@/components/theme-provider"
-import { fetchScoutAIImages, processImagesWithGPT, analyzeImages, fetchEventsAPI } from "@/app/actions"
+import { fetchScoutAIImages, processImagesWithGPT, analyzeImages, fetchEventsAPI, fetchDriveThruAPI } from "@/app/actions"
 import DashboardForm from "@/components/dashboard-form"
 import PasswordModal from "@/components/password-modal"
 import Image from "next/image"
@@ -77,6 +77,23 @@ export default function Dashboard() {
   const [eventsLimit, setEventsLimit] = useState(10)
   const [eventsPage, setEventsPage] = useState(0)
   const [totalEvents, setTotalEvents] = useState(0)
+
+  // DriveThru-specific state
+  const [driveThruApiKey, setDriveThruApiKey] = useState("")
+  const [driveThruEnvironment, setDriveThruEnvironment] = useState("production")
+  const [isDriveThruKeyValid, setIsDriveThruKeyValid] = useState(false)
+  const [driveThruLocations, setDriveThruLocations] = useState([])
+  const [driveThruTasks, setDriveThruTasks] = useState([])
+  const [driveThruCameras, setDriveThruCameras] = useState([])
+  const [selectedDriveThruLocation, setSelectedDriveThruLocation] = useState("")
+  const [selectedDriveThruTask, setSelectedDriveThruTask] = useState("")
+  const [selectedDriveThruCamera, setSelectedDriveThruCamera] = useState("")
+  const [driveThruFromDate, setDriveThruFromDate] = useState(getDefaultFromDate())
+  const [driveThruToDate, setDriveThruToDate] = useState(getYesterdayDate())
+  const [driveThruLimit, setDriveThruLimit] = useState(10)
+  const [driveThruPage, setDriveThruPage] = useState(0)
+  const [totalDriveThru, setTotalDriveThru] = useState(0)
+  const [driveThruType, setDriveThruType] = useState("detections") // Track if we're in journey or detections mode
 
   // Helper function to get default from date (30 days ago)
   function getDefaultFromDate() {
@@ -216,6 +233,18 @@ export default function Dashboard() {
       setSelectedTask("")
       setSelectedCamera("")
     }
+
+    // Reset DriveThru API state if switching away from drivethru mode
+    if (mode !== "drivethru") {
+      setIsDriveThruKeyValid(false)
+      setDriveThruLocations([])
+      setDriveThruTasks([])
+      setDriveThruCameras([])
+      setSelectedDriveThruLocation("")
+      setSelectedDriveThruTask("")
+      setSelectedDriveThruCamera("")
+      setDriveThruType("detections") // Reset to default
+    }
   }
 
   // Step 1: Fetch images from ScoutAI API
@@ -233,14 +262,11 @@ export default function Dashboard() {
     setSelectedModel(formData.get("model_type") || "gpt")
 
     try {
-      console.log("Fetching images from ScoutAI API...")
       const response = await fetchScoutAIImages(formData)
-      console.log("Fetch complete:", response)
 
       // Check for errors
       if (response.error) {
         setError(isDevMode ? response.error : "Something went wrong. Please try again.")
-        console.error("Error returned from fetchScoutAIImages:", response.error)
         return
       }
 
@@ -272,7 +298,6 @@ export default function Dashboard() {
         )
       }
     } catch (error) {
-      console.error("Error fetching images:", error)
       setError(
         isDevMode
           ? `Error fetching images: ${error instanceof Error ? error.message : String(error)}`
@@ -311,8 +336,6 @@ export default function Dashboard() {
       const indicesToProcess = selectedImages.length > 0 ? selectedImages : null
       const totalToProcess = indicesToProcess ? selectedImages.length : images.length
 
-      console.log(`Processing ${totalToProcess} images with ${selectedModel.toUpperCase()}...`)
-
       // Get batch size from form if in dev mode
       let batchSize = 10 // Default batch size
       if (isDevMode) {
@@ -330,12 +353,9 @@ export default function Dashboard() {
       // Update progress as processing completes
       setProgress(100)
 
-      console.log("Processing complete:", response)
-
       // Check for errors
       if (response.error) {
         setError(isDevMode ? response.error : "Something went wrong. Please try again.")
-        console.error("Error returned from processImagesWithGPT:", response.error)
         return
       }
 
@@ -366,10 +386,9 @@ export default function Dashboard() {
 
       // Show warning if some images failed processing
       if (response.errorCount > 0) {
-        console.warn(`Warning: ${response.errorCount} of ${totalToProcess} images failed to process.`)
+        // Warning: some images failed to process
       }
     } catch (error) {
-      console.error("Error processing images:", error)
       setError(
         isDevMode
           ? `Error processing images: ${error instanceof Error ? error.message : String(error)}`
@@ -398,14 +417,11 @@ export default function Dashboard() {
     setSelectedModel(formData.get("model_type") || "gpt")
 
     try {
-      console.log("Starting manual image analysis...")
       const response = await analyzeImages(formData)
-      console.log("Analysis complete:", response)
 
       // Check for errors
       if (response.error) {
         setError(isDevMode ? response.error : "Something went wrong. Please try again.")
-        console.error("Error returned from analyzeImages:", response.error)
         return
       }
 
@@ -437,7 +453,6 @@ export default function Dashboard() {
         modelUsed: selectedModel,
       })
     } catch (error) {
-      console.error("Error analyzing images:", error)
       setError(
         isDevMode
           ? `Error analyzing images: ${error instanceof Error ? error.message : String(error)}`
@@ -483,6 +498,9 @@ export default function Dashboard() {
     } else if (activeMode === "events") {
       // For Events API, use the events page change handler
       handleEventsPageChange(page - 1) // Convert to 0-indexed for Events API
+    } else if (activeMode === "drivethru") {
+      // For DriveThru API, use the drivethru page change handler
+      handleDriveThruPageChange(page - 1) // Convert to 0-indexed for DriveThru API
     }
   }
 
@@ -518,6 +536,21 @@ export default function Dashboard() {
         // Otherwise, validate the key first
         validateEventsApiKey(apiKey, env)
       }
+    } else if (inputType === "drivethru") {
+      // For DriveThru API, we need to handle API key validation first
+      const apiKey = formData.get("api_key")
+      const env = formData.get("drivethru_env") || "production"
+
+      setDriveThruApiKey(apiKey)
+      setDriveThruEnvironment(env)
+
+      if (isDriveThruKeyValid) {
+        // If key is already validated, fetch DriveThru data
+        handleFetchDriveThru(formData)
+      } else {
+        // Otherwise, validate the key first
+        validateDriveThruApiKey(apiKey, env)
+      }
     } else {
       // For Scout AI API, we don't need a prompt to fetch images
       // Remove any prompt validation here - prompt is only needed for processing
@@ -542,15 +575,6 @@ export default function Dashboard() {
 
       const url = `${baseUrl}/locations/get`
 
-      // Create and log the curl command for debugging
-      const curlCommand = `curl -X GET "${url}" -H "Authorization: Bearer ${apiKey.substring(0, 5)}..."`
-      console.log("=== LOCATIONS API REQUEST ===")
-      console.log(`URL: ${url}`)
-      console.log(`Headers: { Authorization: "Bearer ${apiKey.substring(0, 5)}..." }`)
-      console.log(
-        `Full curl command for testing: ${curlCommand.replace(apiKey.substring(0, 5) + "...", "${YOUR_API_KEY}")}`,
-      )
-
       const response = await fetch(url, {
         headers: {
           Authorization: `Bearer ${apiKey}`,
@@ -560,28 +584,21 @@ export default function Dashboard() {
         cache: "no-store",
       })
 
-      console.log("Locations API response status:", response.status)
-      console.log("Locations API response headers:", Object.fromEntries([...response.headers.entries()]))
-
       if (!response.ok) {
         const errorText = await response.text()
-        console.error(`API key validation failed (${response.status}): ${errorText}`)
         throw new Error(`API key validation failed: ${response.status} - ${errorText}`)
       }
 
       const data = await response.json()
-      console.log("Locations API response data:", data)
 
       if (data.status === 200) {
         setEventsApiKey(apiKey)
         setIsEventsKeyValid(true)
         setLocations(data.data || [])
-        console.log("API key validated successfully. Locations:", data.data)
       } else {
         throw new Error(data.message || "API key validation failed")
       }
     } catch (error) {
-      console.error("API key validation error:", error)
       setError(`API key validation failed: ${error.message}`)
       setIsEventsKeyValid(false)
     } finally {
@@ -599,15 +616,6 @@ export default function Dashboard() {
     try {
       const url = `${getEventsBaseUrl()}/task/list?location=${locationId}`
 
-      // Create and log the curl command for debugging
-      const curlCommand = `curl -X GET "${url}" -H "Authorization: Bearer ${eventsApiKey.substring(0, 5)}..."`
-      console.log("=== TASK API REQUEST ===")
-      console.log(`URL: ${url}`)
-      console.log(`Headers: { Authorization: "Bearer ${eventsApiKey.substring(0, 5)}..." }`)
-      console.log(
-        `Full curl command for testing: ${curlCommand.replace(eventsApiKey.substring(0, 5) + "...", "${YOUR_API_KEY}")}`,
-      )
-
       const response = await fetch(url, {
         headers: {
           Authorization: `Bearer ${eventsApiKey}`,
@@ -617,26 +625,19 @@ export default function Dashboard() {
         cache: "no-store",
       })
 
-      console.log("Task API response status:", response.status)
-      console.log("Task API response headers:", Object.fromEntries([...response.headers.entries()]))
-
       if (!response.ok) {
         const errorText = await response.text()
-        console.error(`Failed to fetch tasks (${response.status}): ${errorText}`)
         throw new Error(`Failed to fetch tasks: ${response.status} - ${errorText}`)
       }
 
       const data = await response.json()
-      console.log("Task API response data:", data)
 
       if (data.status === 200) {
         setTasks(data.data || [])
-        console.log("Tasks fetched:", data.data)
       } else {
         throw new Error(data.message || "Failed to fetch tasks")
       }
     } catch (error) {
-      console.error("Error fetching tasks:", error)
       setError(`Failed to fetch tasks: ${error.message}`)
     } finally {
       setIsLoading(false)
@@ -653,15 +654,6 @@ export default function Dashboard() {
     try {
       const url = `${getEventsBaseUrl()}/camera/get?location=${locationId}&task=${taskId}`
 
-      // Create and log the curl command for debugging
-      const curlCommand = `curl -X GET "${url}" -H "Authorization: Bearer ${eventsApiKey.substring(0, 5)}..."`
-      console.log("=== CAMERA API REQUEST ===")
-      console.log(`URL: ${url}`)
-      console.log(`Headers: { Authorization: "Bearer ${eventsApiKey.substring(0, 5)}..." }`)
-      console.log(
-        `Full curl command for testing: ${curlCommand.replace(eventsApiKey.substring(0, 5) + "...", "${YOUR_API_KEY}")}`,
-      )
-
       const response = await fetch(url, {
         headers: {
           Authorization: `Bearer ${eventsApiKey}`,
@@ -671,26 +663,19 @@ export default function Dashboard() {
         cache: "no-store",
       })
 
-      console.log("Camera API response status:", response.status)
-      console.log("Camera API response headers:", Object.fromEntries([...response.headers.entries()]))
-
       if (!response.ok) {
         const errorText = await response.text()
-        console.error(`Failed to fetch cameras (${response.status}): ${errorText}`)
         throw new Error(`Failed to fetch cameras: ${response.status} - ${errorText}`)
       }
 
       const data = await response.json()
-      console.log("Camera API response data:", data)
 
       if (data.status === 200) {
         setCameras(data.data?.data || [])
-        console.log("Cameras fetched:", data.data?.data)
       } else {
         throw new Error(data.message || "Failed to fetch cameras")
       }
     } catch (error) {
-      console.error("Error fetching cameras:", error)
       setError(`Failed to fetch cameras: ${error.message}`)
     } finally {
       setIsLoading(false)
@@ -699,7 +684,6 @@ export default function Dashboard() {
 
   // Handle location change
   const handleLocationChange = (locationId) => {
-    console.log("Location changed to:", locationId)
     setSelectedLocation(locationId)
     setSelectedTask("")
     setSelectedCamera("")
@@ -714,7 +698,6 @@ export default function Dashboard() {
 
   // Handle task change
   const handleTaskChange = (taskId) => {
-    console.log("Task changed to:", taskId)
     setSelectedTask(taskId)
     setSelectedCamera("")
 
@@ -727,7 +710,6 @@ export default function Dashboard() {
 
   // Add a handleCameraChange function
   const handleCameraChange = (cameraId) => {
-    console.log("Camera changed to:", cameraId)
     setSelectedCamera(cameraId)
   }
 
@@ -778,15 +760,6 @@ export default function Dashboard() {
 
       const url = `${getEventsBaseUrl()}/events/get/${limit}/${page}${queryParams}`
 
-      // Create and log the curl command for debugging
-      const curlCommand = `curl -X GET "${url}" -H "Authorization: Bearer ${eventsApiKey.substring(0, 5)}..."`
-      console.log("=== EVENTS API REQUEST ===")
-      console.log(`URL: ${url}`)
-      console.log(`Headers: { Authorization: "Bearer ${eventsApiKey.substring(0, 5)}..." }`)
-      console.log(
-        `Full curl command for testing: ${curlCommand.replace(eventsApiKey.substring(0, 5) + "...", "${YOUR_API_KEY}")}`,
-      )
-
       // Create a new FormData object for the server action
       const serverFormData = new FormData()
       serverFormData.append("api_key", eventsApiKey)
@@ -799,14 +772,11 @@ export default function Dashboard() {
       serverFormData.append("events_task", taskId)
       serverFormData.append("events_camera", cameraId)
 
-      console.log("Fetching events from Events API...")
       const response = await fetchEventsAPI(serverFormData)
-      console.log("Fetch complete:", response)
 
       // Check for errors
       if (response.error) {
         setError(response.error)
-        console.error("Error returned from fetchEventsAPI:", response.error)
         return
       }
 
@@ -837,7 +807,6 @@ export default function Dashboard() {
         )
       }
     } catch (error) {
-      console.error("Error fetching events:", error)
       setError(`Error fetching events: ${error instanceof Error ? error.message : String(error)}`)
     } finally {
       setIsLoading(false)
@@ -858,12 +827,357 @@ export default function Dashboard() {
     handleFetchEvents(formData)
   }
 
+  // DriveThru API functions
+  const validateDriveThruApiKey = async (apiKey, environment) => {
+    if (!apiKey.trim()) {
+      setError("API key is required")
+      return
+    }
+
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      // Try to fetch locations as a validation test
+      const baseUrl = environment === "production" ? "https://api.wobot.ai" : "https://api-staging.wobot.ai"
+      const response = await fetch(`${baseUrl}/client/v2/locations/get`, {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error(`API key validation failed: ${response.status}`)
+      }
+
+      const data = await response.json()
+
+      if (data.status === 200) {
+        // Store the API key and environment in state
+        setDriveThruApiKey(apiKey)
+        setDriveThruEnvironment(environment)
+        setIsDriveThruKeyValid(true)
+        setDriveThruLocations(data.data || [])
+      } else {
+        throw new Error(data.message || "API key validation failed")
+      }
+    } catch (error) {
+      setError(`API key validation failed: ${error.message}`)
+      setIsDriveThruKeyValid(false)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleDriveThruLocationChange = (locationId) => {
+    setSelectedDriveThruLocation(locationId)
+    setSelectedDriveThruTask("")
+    setSelectedDriveThruCamera("")
+    setDriveThruTasks([])
+    setDriveThruCameras([])
+
+    if (locationId && isDriveThruKeyValid) {
+      fetchDriveThruTasks(locationId)
+    }
+  }
+
+  const fetchDriveThruTasks = async (locationId) => {
+    if (!locationId) return
+
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      const baseUrl = driveThruEnvironment === "production" ? "https://api.wobot.ai" : "https://api-staging.wobot.ai"
+      const response = await fetch(`${baseUrl}/client/v2/task/list?location=${locationId}`, {
+        headers: {
+          Authorization: `Bearer ${driveThruApiKey}`,
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch tasks: ${response.status}`)
+      }
+
+      const data = await response.json()
+
+      if (data.status === 200) {
+        setDriveThruTasks(data.data || [])
+      } else {
+        throw new Error(data.message || "Failed to fetch tasks")
+      }
+    } catch (error) {
+      setError(`Failed to fetch tasks: ${error.message}`)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleDriveThruTaskChange = (taskId) => {
+    setSelectedDriveThruTask(taskId)
+    setSelectedDriveThruCamera("")
+    setDriveThruCameras([])
+
+    if (taskId && selectedDriveThruLocation && isDriveThruKeyValid) {
+      fetchDriveThruCameras(selectedDriveThruLocation, taskId)
+    }
+  }
+
+  const fetchDriveThruCameras = async (locationId, taskId) => {
+    if (!locationId || !taskId) return
+
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      const baseUrl = driveThruEnvironment === "production" ? "https://api.wobot.ai" : "https://api-staging.wobot.ai"
+      const response = await fetch(`${baseUrl}/client/v2/camera/get?location=${locationId}&task=${taskId}`, {
+        headers: {
+          Authorization: `Bearer ${driveThruApiKey}`,
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch cameras: ${response.status}`)
+      }
+
+      const data = await response.json()
+
+      if (data.status === 200) {
+        setDriveThruCameras(data.data?.data || [])
+      } else {
+        throw new Error(data.message || "Failed to fetch cameras")
+      }
+    } catch (error) {
+      setError(`Failed to fetch cameras: ${error.message}`)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleDriveThruCameraChange = (cameraId) => {
+    setSelectedDriveThruCamera(cameraId)
+  }
+
+  const handleFetchDriveThru = async (formData) => {
+    setIsLoading(true)
+    setImages([])
+    setResults([])
+    setSelectedImages([])
+    setError(null)
+    setApiCall("")
+    setCurlCommand("")
+    setApiResponse(null)
+    setActiveMode("drivethru")
+
+    // Store the DriveThru type for UI rendering
+    const driveThruDataType = formData.get("drivethru_type") || "detections"
+    setDriveThruType(driveThruDataType)
+
+    try {
+      const response = await fetchDriveThruAPI(formData)
+
+      // Check for errors
+      if (response.error) {
+        // Temporarily show the actual error for debugging
+        setError(`DriveThru API Error: ${response.error}`)
+        return
+      }
+
+      // Update state with response data
+      setImages(response.images || [])
+      setPagination({
+        currentPage: response.currentPage || 1,
+        totalPages: response.totalPages || 1,
+        totalCount: response.totalCount || 0,
+      })
+      setApiCall(response.apiCall || "")
+      setCurlCommand(response.curlCommand || "")
+      setApiResponse(response.apiResponse)
+      setStats({
+        totalFetched: response.images?.length || 0,
+        processedCount: 0,
+        promptTokens: 0,
+        completionTokens: 0,
+        totalTokens: 0,
+        modelUsed: selectedModel,
+      })
+
+      // Show error if no images were fetched
+      if (!response.images || response.images.length === 0) {
+        setError(
+          "No DriveThru data found. Please check your input parameters (dates, location) and try again.",
+        )
+      }
+    } catch (error) {
+      setError(`Error fetching DriveThru data: ${error instanceof Error ? error.message : String(error)}`)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Handle DriveThru API page change
+  const handleDriveThruPageChange = (newPage) => {
+    setDriveThruPage(newPage)
+
+    // Create a new FormData object for the form submission
+    const form = document.querySelector("form")
+    if (!form) return
+
+    const formData = new FormData(form)
+    formData.set("drivethru_page", newPage.toString())
+
+    handleFetchDriveThru(formData)
+  }
+
   const handleDownload = async (format) => {
     try {
-      console.log(`Downloading results as ${format}...`)
+      // Prepare comprehensive data based on the active mode
+      let downloadData = []
+      let apiType = activeMode
+      
+      if (results.length > 0) {
+        // If we have processed results, merge them with original images data
+        downloadData = images.map((image, index) => {
+          const result = results.find((r) => r.image === image.image) || {}
+          return {
+            ...image,
+            ...result,
+            serialNumber: image.serialNumber || index + 1,
+            processed: !!result.label,
+            error: !!result.error
+          }
+        })
+      } else {
+        // If no processed results, just use the images data
+        downloadData = images.map((image, index) => ({
+          ...image,
+          serialNumber: image.serialNumber || index + 1,
+          processed: false,
+          error: false
+        }))
+      }
+      
+      // Add metadata based on API type and actual response structure
+      if (activeMode === "scoutai") {
+        downloadData = downloadData.map(item => ({
+          ...item,
+          scoutData: {
+            imageId: item.id || item._id || "",
+            companyId: item.companyId || "",
+            taskId: item.taskId || "",
+            locationId: item.locationId || "",
+            date: item.date || "",
+            time: item.time || "",
+            createdAt: item.createdAt || "",
+            // ScoutAI doesn't have complex metadata in the current implementation
+            // The image URL is the main data point
+          }
+        }))
+      } else if (activeMode === "events") {
+        downloadData = downloadData.map(item => ({
+          ...item,
+          eventData: {
+            // Event identification
+            eventId: item.eventData?._id || "",
+            uid: item.eventData?.uid || "",
+            title: item.eventData?.title || "",
+            
+            // Timestamps
+            date: item.eventData?.date || "",
+            createdAt: item.eventData?.createdAt || "",
+            detectedAt: item.eventData?.detectedAt || "",
+            taskTime: item.eventData?.taskTime || "",
+            
+            // Location information
+            location: item.eventData?.metadata?.location || "",
+            locationId: item.eventData?.metadata?.locationId || "",
+            city: item.eventData?.metadata?.city || "",
+            region: item.eventData?.metadata?.region || "",
+            
+            // Task and camera information
+            task: item.eventData?.metadata?.task || "",
+            taskId: item.eventData?.task || "",
+            camera: item.eventData?.camera?.camera || "",
+            cameraId: item.eventData?.camera?._id || "",
+            
+            // Event details
+            confidence: item.eventData?.confidence || "",
+            modelType: item.eventData?.modelType?.label || "",
+            timezone: item.eventData?.timezone || "",
+            
+            // Additional metadata
+            checklist: item.eventData?.metadata?.checklist || "",
+            raisedFrom: item.eventData?.raisedFrom || "",
+            additionalInfo: item.eventData?.additionalInfo || "",
+            
+            // Incident information
+            incidentInfo: item.eventData?.incidentInfo || [],
+            
+            // Store full event data for reference
+            ...item.eventData
+          }
+        }))
+      } else if (activeMode === "drivethru") {
+        downloadData = downloadData.map(item => ({
+          ...item,
+          driveThruData: {
+            // Detection/Journey identification
+            detectionId: item.eventData?._id || "",
+            journeyId: item.eventData?.journeyId || item.eventData?.journey || "",
+            uid: item.eventData?.uid || "",
+            
+            // Timestamps
+            date: item.eventData?.date || item.eventData?.dateToString || "",
+            time: item.eventData?.time || "",
+            createdAt: item.eventData?.created_at || item.eventData?.createdAt || "",
+            updatedAt: item.eventData?.updated_at || item.eventData?.updatedAt || "",
+            
+            // Location information
+            location: item.eventData?.metadata?.location || "",
+            locationId: item.eventData?.location || "",
+            city: item.eventData?.metadata?.city || "",
+            region: item.eventData?.metadata?.region || "",
+            
+            // DriveThru specific data
+            type: item.eventData?.type || "detection",
+            station: item.eventData?.station || item.eventData?.stationData?.station || "",
+            stationType: item.eventData?.stationType || item.eventData?.stationData?.stationType || "",
+            orderNo: item.eventData?.orderNo || item.eventData?.stationData?.orderNo || "",
+            
+            // Vehicle information
+            lp: item.eventData?.lp || "",
+            lpr: item.eventData?.lpr || "",
+            lprConfidence: item.eventData?.lprConfidence || "",
+            confidenceScore: item.eventData?.confidenceScore || "",
+            
+            // Camera information
+            camera: item.eventData?.camera || "",
+            cameraId: item.eventData?.camera || "",
+            
+            // Journey specific data (for journey API)
+            imageType: item.eventData?.imageType || "", // "entry" or "exit"
+            duration: item.eventData?.stationData?.duration || "",
+            transitTime: item.eventData?.stationData?.transitTime || "",
+            entryTime: item.eventData?.stationData?.entryTime || "",
+            exitTime: item.eventData?.stationData?.exitTime || "",
+            
+            // Additional metadata
+            timezone: item.eventData?.timezone || "",
+            primary: item.eventData?.primary || item.eventData?.stationData?.primary || false,
+            halt: item.eventData?.halt || item.eventData?.stationData?.halt || false,
+            goal: item.eventData?.goal || item.eventData?.stationData?.goal || "",
+            
+            // Store full event data for reference
+            ...item.eventData
+          }
+        }))
+      }
+
       const formData = new FormData()
-      formData.append("data", JSON.stringify(results.length > 0 ? results : images))
+      formData.append("data", JSON.stringify(downloadData))
       formData.append("format", format)
+      formData.append("apiType", apiType)
 
       const response = await fetch("/api/download", {
         method: "POST",
@@ -878,15 +1192,13 @@ export default function Dashboard() {
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
-      a.download = `results.${format}`
+      a.download = `${apiType}-results.${format}`
       document.body.appendChild(a)
       a.click()
       window.URL.revokeObjectURL(url)
       document.body.removeChild(a)
 
-      console.log(`Download complete: ${format}`)
     } catch (error) {
-      console.error("Error downloading results:", error)
       setError(`Error downloading results: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
@@ -959,6 +1271,37 @@ export default function Dashboard() {
   // Toggle calculator modal
   const toggleCalculator = () => {
     setShowCalculator(!showCalculator)
+  }
+
+  // Helper function to group DriveThru journey images by journey ID
+  const groupJourneyImages = (images) => {
+    const journeyGroups = {}
+    
+    images.forEach((image, index) => {
+      const journeyId = image.eventData?.journeyId || image.eventData?._id || `journey-${index}`
+      const carId = image.eventData?.lp || image.eventData?.lpr || `Car-${journeyId.slice(-6)}`
+      
+      if (!journeyGroups[journeyId]) {
+        journeyGroups[journeyId] = {
+          journeyId,
+          carId,
+          images: [],
+          metadata: {
+            location: image.eventData?.metadata?.location || "",
+            date: image.eventData?.date || image.eventData?.dateToString || "",
+            totalJourneyTime: image.eventData?.totalJourneyTime || 0,
+            isCompleted: image.eventData?.isCompleted || false,
+          }
+        }
+      }
+      
+      journeyGroups[journeyId].images.push({
+        ...image,
+        originalIndex: index
+      })
+    })
+    
+    return Object.values(journeyGroups)
   }
 
   // Update the return statement to remove the Events API tab
@@ -1038,6 +1381,32 @@ export default function Dashboard() {
         onEventsLocationChange={handleLocationChange}
         onEventsTaskChange={handleTaskChange}
         onEventsCameraChange={handleCameraChange}
+        // DriveThru API specific props
+        isDriveThruKeyValid={isDriveThruKeyValid}
+        driveThruApiKey={driveThruApiKey}
+        driveThruEnvironment={driveThruEnvironment}
+        driveThruLocations={driveThruLocations}
+        driveThruTasks={driveThruTasks}
+        driveThruCameras={driveThruCameras}
+        driveThruLocation={selectedDriveThruLocation}
+        driveThruTask={selectedDriveThruTask}
+        driveThruCamera={selectedDriveThruCamera}
+        driveThruPage={driveThruPage}
+        onDriveThruApiValidate={(apiKey, env) => validateDriveThruApiKey(apiKey, env)}
+        onDriveThruApiReset={() => {
+          setIsDriveThruKeyValid(false)
+          setDriveThruApiKey("")
+          setDriveThruEnvironment("production")
+          setDriveThruLocations([])
+          setDriveThruTasks([])
+          setDriveThruCameras([])
+          setSelectedDriveThruLocation("")
+          setSelectedDriveThruTask("")
+          setSelectedDriveThruCamera("")
+        }}
+        onDriveThruLocationChange={handleDriveThruLocationChange}
+        onDriveThruTaskChange={handleDriveThruTaskChange}
+        onDriveThruCameraChange={handleDriveThruCameraChange}
       />
 
       {/* Rest of the playground content... */}
@@ -1050,7 +1419,9 @@ export default function Dashboard() {
                 ? "Fetching images..."
                 : activeMode === "events"
                   ? "Fetching events..."
-                  : "Processing image..."}
+                  : activeMode === "drivethru"
+                    ? "Fetching DriveThru data..."
+                    : "Processing image..."}
             </p>
           </div>
         </div>
@@ -1175,13 +1546,13 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Display ScoutAI or Events API images and Process button */}
-      {(activeMode === "scoutai" || activeMode === "events") && images.length > 0 && !isLoading && (
+      {/* Display ScoutAI, Events API, or DriveThru API images and Process button */}
+      {(activeMode === "scoutai" || activeMode === "events" || activeMode === "drivethru") && images.length > 0 && !isLoading && (
         <div className="mt-6">
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center gap-2">
               <h2 className="text-xl font-medium">
-                {activeMode === "events" ? "Events" : "Images"} ({images.length})
+                {activeMode === "events" ? "Events" : activeMode === "drivethru" ? "DriveThru Data" : "Images"} ({images.length})
               </h2>
 
               {/* Select all checkbox */}
@@ -1205,6 +1576,24 @@ export default function Dashboard() {
             </div>
 
             <div className="flex items-center gap-2">
+              {/* Download buttons - always available when there are images */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleDownload("json")}
+                  className="px-3 py-1 bg-purple-600 text-white rounded-md hover:bg-purple-700 text-sm"
+                  title="Download as JSON"
+                >
+                  JSON
+                </button>
+                <button
+                  onClick={() => handleDownload("csv")}
+                  className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm"
+                  title="Download as CSV"
+                >
+                  CSV
+                </button>
+              </div>
+
               {/* Process with selected model button - only show when images are selected */}
               {!isProcessing && selectedImages.length > 0 && (
                 <button
@@ -1245,94 +1634,310 @@ export default function Dashboard() {
           </div>
 
           {/* Image grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-            {images.map((item, index) => {
-              // Find the corresponding result if it exists
-              const result = results.find((r) => r.image === item.image) || {}
-              // Merge the result with the original item to preserve selection state
-              const displayItem = { ...item, ...result }
+          {activeMode === "drivethru" && driveThruType === "journey" ? (
+            /* DriveThru Journey Mode - Group images by journey */
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {groupJourneyImages(images).map((journey, journeyIndex) => {
+                // Format the date/time properly
+                const formatDateTime = (dateStr) => {
+                  if (!dateStr) return ""
+                  try {
+                    return new Date(dateStr).toLocaleString()
+                  } catch (e) {
+                    return dateStr
+                  }
+                }
 
-              // Sanitize error messages for non-dev mode
-              let displayLabel = displayItem.label
-              if (!isDevMode && displayItem.error) {
-                displayLabel = sanitizeErrorMessage(displayLabel)
-              }
-
-              return (
-                <div
-                  key={index}
-                  className={`bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden ${
-                    displayItem.error ? "border-red-300 dark:border-red-700 border-2" : ""
-                  } ${selectedImages.includes(index) ? "ring-2 ring-blue-500" : ""}`}
-                >
-                  <div className="relative w-full h-60 cursor-pointer" onClick={() => toggleImageSelection(index)}>
-                    {/* Serial number badge */}
-                    <div className="absolute top-2 left-2 bg-black bg-opacity-70 text-white px-2 py-1 rounded-md text-xs font-medium z-10">
-                      #{displayItem.serialNumber}
+                return (
+                  <div
+                    key={journey.journeyId}
+                    className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden border"
+                  >
+                    {/* Journey Header - Simplified */}
+                    <div className="bg-gray-50 dark:bg-gray-700 px-4 py-3 border-b">
+                      <div className="flex justify-between items-center">
+                        <div className="flex flex-col gap-1">
+                          <h3 className="font-medium text-lg">{journey.carId}</h3>
+                          <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+                            {journey.metadata.location && (
+                              <span>📍 {journey.metadata.location}</span>
+                            )}
+                            {journey.metadata.date && (
+                              <span>📅 {formatDateTime(journey.metadata.date)}</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-gray-500 dark:text-gray-400">
+                            {journey.images.length} images
+                          </span>
+                          {journey.metadata.isCompleted && (
+                            <span className="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs rounded-full">
+                              Completed
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </div>
 
-                    {/* Selection checkbox */}
-                    <div className="absolute top-2 right-2 z-10" onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="checkbox"
-                        checked={selectedImages.includes(index)}
-                        onChange={() => toggleImageSelection(index)}
-                        className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
+                    {/* Journey Images - With slider for more than 2 images */}
+                    <div className="p-4">
+                      {journey.images.length <= 2 ? (
+                        /* Show all images if 2 or fewer */
+                        <div className="grid grid-cols-2 gap-4">
+                          {journey.images.map((item, imageIndex) => {
+                            // Find the corresponding result if it exists
+                            const result = results.find((r) => r.image === item.image) || {}
+                            // Merge the result with the original item to preserve selection state
+                            const displayItem = { ...item, ...result }
+
+                            // Sanitize error messages for non-dev mode
+                            let displayLabel = displayItem.label
+                            if (!isDevMode && displayItem.error) {
+                              displayLabel = sanitizeErrorMessage(displayLabel)
+                            }
+
+                            return (
+                              <div
+                                key={`${journey.journeyId}-${imageIndex}`}
+                                className={`bg-gray-50 dark:bg-gray-700 rounded-lg overflow-hidden ${
+                                  displayItem.error ? "border-red-300 dark:border-red-700 border-2" : ""
+                                } ${selectedImages.includes(item.originalIndex) ? "ring-2 ring-blue-500" : ""}`}
+                              >
+                                <div className="relative w-full h-40 cursor-pointer" onClick={() => toggleImageSelection(item.originalIndex)}>
+
+                                  {/* Selection checkbox */}
+                                  <div className="absolute top-2 left-2 z-10" onClick={(e) => e.stopPropagation()}>
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedImages.includes(item.originalIndex)}
+                                      onChange={() => toggleImageSelection(item.originalIndex)}
+                                      className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                    />
+                                  </div>
+
+                                  {displayItem.image && displayItem.image.startsWith("http") ? (
+                                    <Image
+                                      src={displayItem.image || "/placeholder.svg"}
+                                      alt={`${journey.carId} - ${displayItem.eventData?.imageType || "Image"}`}
+                                      fill
+                                      className="object-cover"
+                                      unoptimized
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-600">
+                                      <p className="text-sm text-gray-500 dark:text-gray-400">{displayItem.image || "No image"}</p>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Simplified image details - only AI response */}
+                                <div className="p-3">
+                                  {displayItem.processed ? (
+                                    <p className="text-sm">
+                                      <strong>AI:</strong>{" "}
+                                      {isDevMode && displayItem.error && displayItem.detailedError
+                                        ? displayItem.detailedError
+                                        : displayLabel}
+                                    </p>
+                                  ) : (
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">Not processed</p>
+                                  )}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      ) : (
+                        /* Slider for more than 2 images */
+                        <div className="relative">
+                          <div 
+                            id={`slider-${journey.journeyId}`}
+                            className="flex gap-4 overflow-x-auto scrollbar-hide pb-2"
+                            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                          >
+                            {journey.images.map((item, imageIndex) => {
+                              // Find the corresponding result if it exists
+                              const result = results.find((r) => r.image === item.image) || {}
+                              // Merge the result with the original item to preserve selection state
+                              const displayItem = { ...item, ...result }
+
+                              // Sanitize error messages for non-dev mode
+                              let displayLabel = displayItem.label
+                              if (!isDevMode && displayItem.error) {
+                                displayLabel = sanitizeErrorMessage(displayLabel)
+                              }
+
+                              return (
+                                <div
+                                  key={`${journey.journeyId}-${imageIndex}`}
+                                  className={`flex-shrink-0 w-48 bg-gray-50 dark:bg-gray-700 rounded-lg overflow-hidden ${
+                                    displayItem.error ? "border-red-300 dark:border-red-700 border-2" : ""
+                                  } ${selectedImages.includes(item.originalIndex) ? "ring-2 ring-blue-500" : ""}`}
+                                >
+                                  <div className="relative w-full h-32 cursor-pointer" onClick={() => toggleImageSelection(item.originalIndex)}>
+                                    {/* Image type badge */}
+                                    <div className="absolute top-1 left-1 bg-black bg-opacity-70 text-white px-2 py-1 rounded text-xs font-medium z-10">
+                                      {displayItem.eventData?.imageType === "entry" ? "Entry" : "Exit"}
+                                    </div>
+
+                                    {/* Station info */}
+                                    {displayItem.eventData?.stationData?.station && (
+                                      <div className="absolute top-1 right-1 bg-blue-600 bg-opacity-80 text-white px-1 py-0.5 rounded text-xs z-10">
+                                        {displayItem.eventData.stationData.station}
+                                      </div>
+                                    )}
+
+                                    {/* Selection checkbox */}
+                                    <div className="absolute bottom-1 right-1 z-10" onClick={(e) => e.stopPropagation()}>
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedImages.includes(item.originalIndex)}
+                                        onChange={() => toggleImageSelection(item.originalIndex)}
+                                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                      />
+                                    </div>
+
+                                    {displayItem.image && displayItem.image.startsWith("http") ? (
+                                      <Image
+                                        src={displayItem.image || "/placeholder.svg"}
+                                        alt={`${journey.carId} - ${displayItem.eventData?.imageType || "Image"}`}
+                                        fill
+                                        className="object-cover"
+                                        unoptimized
+                                      />
+                                    ) : (
+                                      <div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-600">
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">{displayItem.image || "No image"}</p>
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* Simplified image details - only AI response */}
+                                  <div className="p-2">
+                                    {displayItem.processed ? (
+                                      <p className="text-xs">
+                                        <strong>AI:</strong>{" "}
+                                        {isDevMode && displayItem.error && displayItem.detailedError
+                                          ? displayItem.detailedError
+                                          : displayLabel}
+                                      </p>
+                                    ) : (
+                                      <p className="text-xs text-gray-500 dark:text-gray-400">Not processed</p>
+                                    )}
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                          
+                          {/* Scroll indicators */}
+                          <div className="flex justify-center mt-2 gap-1">
+                            {Array.from({ length: Math.ceil(journey.images.length / 2) }).map((_, index) => (
+                              <div
+                                key={index}
+                                className="w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-600"
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
-
-                    {displayItem.image && displayItem.image.startsWith("http") ? (
-                      <Image
-                        src={displayItem.image || "/placeholder.svg"}
-                        alt={`Image ${displayItem.serialNumber}`}
-                        fill
-                        className="object-fill"
-                        unoptimized
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-700">
-                        <p className="text-sm text-gray-500 dark:text-gray-400">{displayItem.image || "No image"}</p>
-                      </div>
-                    )}
                   </div>
-                  <div className="p-4">
-                    {/* Show event details if available */}
-                    {displayItem.eventData && false && (
-                      <div className="mb-2">
-                        <p className="text-sm font-medium">{displayItem.eventData.title || "Event"}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {new Date(displayItem.eventData.createdAt).toLocaleString()}
-                        </p>
-                        {displayItem.eventData.metadata && (
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            {displayItem.eventData.metadata.location || displayItem.eventData.metadata.locationId || ""}
-                          </p>
-                        )}
-                      </div>
-                    )}
+                )
+              })}
+            </div>
+          ) : (
+            /* Regular grid for other modes (ScoutAI, Events, DriveThru Detections) */
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+              {images.map((item, index) => {
+                // Find the corresponding result if it exists
+                const result = results.find((r) => r.image === item.image) || {}
+                // Merge the result with the original item to preserve selection state
+                const displayItem = { ...item, ...result }
 
-                    {displayItem.processed ? (
-                      <>
-                        <p className="text-sm">
-                          <strong>Label:</strong>{" "}
-                          {isDevMode && displayItem.error && displayItem.detailedError
-                            ? displayItem.detailedError
-                            : displayLabel}
-                        </p>
-                        {displayItem.modelUsed && isDevMode && (
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            Processed with: {getFriendlyModelName(displayItem.modelUsed)}
+                // Sanitize error messages for non-dev mode
+                let displayLabel = displayItem.label
+                if (!isDevMode && displayItem.error) {
+                  displayLabel = sanitizeErrorMessage(displayLabel)
+                }
+
+                return (
+                  <div
+                    key={index}
+                    className={`bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden ${
+                      displayItem.error ? "border-red-300 dark:border-red-700 border-2" : ""
+                    } ${selectedImages.includes(index) ? "ring-2 ring-blue-500" : ""}`}
+                  >
+                    <div className="relative w-full h-60 cursor-pointer" onClick={() => toggleImageSelection(index)}>
+                      {/* Serial number badge */}
+                      <div className="absolute top-2 left-2 bg-black bg-opacity-70 text-white px-2 py-1 rounded-md text-xs font-medium z-10">
+                        #{displayItem.serialNumber}
+                      </div>
+
+                      {/* Selection checkbox */}
+                      <div className="absolute top-2 right-2 z-10" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={selectedImages.includes(index)}
+                          onChange={() => toggleImageSelection(index)}
+                          className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                      </div>
+
+                      {displayItem.image && displayItem.image.startsWith("http") ? (
+                        <Image
+                          src={displayItem.image || "/placeholder.svg"}
+                          alt={`Image ${displayItem.serialNumber}`}
+                          fill
+                          className="object-fill"
+                          unoptimized
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-700">
+                          <p className="text-sm text-gray-500 dark:text-gray-400">{displayItem.image || "No image"}</p>
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-4">
+                      {/* Show event details if available */}
+                      {displayItem.eventData && false && (
+                        <div className="mb-2">
+                          <p className="text-sm font-medium">{displayItem.eventData.title || "Event"}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {new Date(displayItem.eventData.createdAt).toLocaleString()}
                           </p>
-                        )}
-                      </>
-                    ) : (
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Not processed yet</p>
-                    )}
+                          {displayItem.eventData.metadata && (
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              {displayItem.eventData.metadata.location || displayItem.eventData.metadata.locationId || ""}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {displayItem.processed ? (
+                        <>
+                          <p className="text-sm">
+                            <strong>Label:</strong>{" "}
+                            {isDevMode && displayItem.error && displayItem.detailedError
+                              ? displayItem.detailedError
+                              : displayLabel}
+                          </p>
+                          {displayItem.modelUsed && isDevMode && (
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              Processed with: {getFriendlyModelName(displayItem.modelUsed)}
+                            </p>
+                          )}
+                        </>
+                      ) : (
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Not processed yet</p>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )
-            })}
-          </div>
+                )
+              })}
+            </div>
+          )}
 
           {/* Bottom pagination controls */}
           {pagination && pagination.totalPages > 1 && (
@@ -1366,7 +1971,28 @@ export default function Dashboard() {
       {/* Show manual results if any */}
       {activeMode === "manual" && results.length > 0 && !isLoading && (
         <div className="mt-6">
-          <h2 className="text-xl font-medium mb-4">Manual Upload Results</h2>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-medium">Manual Upload Results ({results.length})</h2>
+            
+            {/* Download buttons for manual results */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleDownload("json")}
+                className="px-3 py-1 bg-purple-600 text-white rounded-md hover:bg-purple-700 text-sm"
+                title="Download as JSON"
+              >
+                JSON
+              </button>
+              <button
+                onClick={() => handleDownload("csv")}
+                className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm"
+                title="Download as CSV"
+              >
+                CSV
+              </button>
+            </div>
+          </div>
+          
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
             {results.map((item, index) => {
               // Sanitize error messages for non-dev mode

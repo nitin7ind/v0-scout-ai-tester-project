@@ -22,9 +22,25 @@ export default function RootLayout({ children }) {
         <link rel="icon" href="/favicon_app.ico" />
         <link rel="shortcut icon" href="/favicon_app.ico" />
         <link rel="apple-touch-icon" href="/favicon_app.ico" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                const theme = localStorage.getItem('theme') || 'light';
+                if (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                  document.documentElement.classList.add('dark');
+                } else {
+                  document.documentElement.classList.add('light');
+                }
+              } catch (e) {
+                document.documentElement.classList.add('light');
+              }
+            `,
+          }}
+        />
       </head>
       <body className={inter.className}>
-        <ThemeProvider defaultTheme="system">{children}</ThemeProvider>
+        <ThemeProvider defaultTheme="light">{children}</ThemeProvider>
       </body>
     </html>
   )

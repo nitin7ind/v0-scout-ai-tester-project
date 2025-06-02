@@ -19,317 +19,250 @@ function makeSerializable(obj) {
 // Step 1: Fetch images from ScoutAI API
 export async function fetchScoutAIImages(formData) {
   try {
+    // Extract form data
     const env = formData.get("env") || "prod"
-    const companyId = formData.get("company_id")
-    const locationId = formData.get("location_id") || ""
-    const taskId = formData.get("task_id")
-    const date = formData.get("date")
-    const limit = Number.parseInt(formData.get("limit")) || 5
+    const companyId = formData.get("company_id") || ""
+    const taskId = formData.get("task_id") || ""
+    const date = formData.get("date") || ""
+    const limit = Number.parseInt(formData.get("limit")) || 10
+    const page = Number.parseInt(formData.get("page")) || 1
 
-    // Convert dashboard page (1-indexed) to API page (0-indexed)
-    const dashboardPage = Number.parseInt(formData.get("page")) || 1
-    const apiPage = Math.max(0, dashboardPage - 1) // Ensure we don't send negative values
-
-    // Validate required parameters
-    if (!companyId) {
-      return { error: "Company ID is required" }
-    }
-
+    // Validate required fields
     if (!taskId) {
-      return { error: "Task ID is required" }
+      throw new Error("Task ID is required")
     }
 
-    console.log(
-      `ScoutAI parameters: env=${env}, companyId=${companyId}, locationId=${locationId}, taskId=${taskId}, date=${date}, limit=${limit}, dashboardPage=${dashboardPage}, apiPage=${apiPage}`,
-    )
+    if (!date) {
+      throw new Error("Date is required")
+    }
 
-    const baseUrl = env === "prod" ? "https://api-app-prod.wobot.ai" : "https://api-app-staging.wobot.ai"
-    const endpoint = `${baseUrl}/app/v1/scoutai/images/get/${limit}/${apiPage}`
+    // Build the API URL
+    const baseUrl = env === "staging" ? "https://api-staging.wobot.ai" : "https://api.wobot.ai"
+    let url = `${baseUrl}/scout/images?task=${taskId}&date=${date}&limit=${limit}&page=${page}`
 
-    // Build query parameters
-    const params = new URLSearchParams({
-      company: companyId,
-      date: date,
-    })
+    if (companyId) {
+      url += `&company=${companyId}`
+    }
 
-    // Add task parameter (required)
-    params.append("task", taskId)
+    // Create curl command for debugging
+    const curlCommand = `curl -X GET "${url}" -H "secret: wobotScoutAIImages"`
 
-    // Add location parameter (even if empty)
-    params.append("location", locationId)
-
-    // Construct the full URL for logging
-    const fullUrl = `${endpoint}?${params.toString()}`
-
-    // Create curl command for display on frontend
-    const curlCommand = `curl -X GET "${fullUrl}" -H "secret: wobotScoutAIImages"`
-
-    console.log("=== SCOUT AI API REQUEST ===")
-    console.log(`URL: ${fullUrl}`)
-    console.log(`Headers: { secret: "wobotScoutAIImages" }`)
-    console.log(`Curl: ${curlCommand}`)
-
-    const response = await fetch(fullUrl, {
+    const response = await fetch(url, {
       headers: {
         secret: "wobotScoutAIImages",
       },
+      cache: "no-store",
     })
-
-    console.log("=== SCOUT AI API RESPONSE ===")
-    console.log(`Status: ${response.status} ${response.statusText}`)
 
     if (!response.ok) {
       const errorText = await response.text()
-      console.error(`Error response body: ${errorText}`)
-      throw new Error(`Failed to fetch images: ${response.status} - ${errorText}`)
+      throw new Error(`API request failed: ${response.status} ${response.statusText} - ${errorText}`)
     }
 
     const responseData = await response.json()
 
-    // Log the complete response structure
-    console.log("Response structure:", JSON.stringify(responseData, null, 2))
-
-    // Extract images array from the nested data.data structure
+    // Extract images from the response
     const images = responseData.data?.data || []
 
-    // Extract pagination info from the nested structure
+    // Calculate pagination
     const totalCount = responseData.data?.total || 0
-    const apiTotalPages = responseData.data?.totalPages || 1
-
-    // Convert dashboard page (1-indexed) to API page (0-indexed)
-    const currentApiPage = responseData.data?.page || apiPage
-    const currentDashboardPage = currentApiPage + 1
-
-    // Total pages should also be adjusted if API is 0-indexed
-    const dashboardTotalPages = apiTotalPages
-
-    console.log(
-      `Images returned: ${images.length} of ${totalCount} total (API page ${currentApiPage}, dashboard page ${currentDashboardPage} of ${dashboardTotalPages})`,
-    )
+    const totalPages = Math.ceil(totalCount / limit)
 
     if (images.length === 0) {
-      console.warn("⚠️ API returned zero images. Check if this is expected.")
-      if (responseData.message) {
-        console.log(`API message: ${responseData.message}`)
+      // Return empty result with warning
+      return {
+        images: [],
+        currentPage: page,
+        totalPages: totalPages,
+        totalCount: totalCount,
+        apiCall: url,
+        curlCommand: curlCommand,
+        apiResponse: responseData,
+        error: null,
       }
-    } else {
-      console.log("First image URL:", images[0])
     }
 
-    // Ensure the response is serializable
-    const serializedResponse = {
-      status: responseData.status,
-      message: responseData.message || "",
-      data: {
-        page: currentApiPage,
-        dashboardPage: currentDashboardPage,
-        limit: responseData.data?.limit || limit,
-        totalPages: apiTotalPages,
-        dashboardTotalPages: dashboardTotalPages,
-        total: responseData.data?.total || 0,
-        hasNextPage: responseData.data?.hasNextPage || false,
-        data: images,
-      },
-    }
-
-    // Create image objects with status and serial number
-    const imageObjects = images.map((url, index) => ({
-      image: url,
-      processed: false,
-      label: null,
-      tokens: null,
-      error: null,
-      serialNumber: currentApiPage * limit + index + 1, // Calculate global serial number
+    // Add serial numbers to images
+    const imagesWithSerial = images.map((imageUrl, index) => ({
+      image: imageUrl,
+      serialNumber: (page - 1) * limit + index + 1,
     }))
 
-    return makeSerializable({
-      images: imageObjects,
-      totalCount,
-      currentPage: currentDashboardPage,
-      totalPages: dashboardTotalPages,
-      apiPage: currentApiPage,
-      apiCall: fullUrl,
-      curlCommand: curlCommand,
-      apiResponse: serializedResponse,
-    })
-  } catch (error) {
-    console.error("=== SCOUT AI API ERROR ===")
-    console.error(error)
     return {
-      error: error.message || "Unknown error fetching images",
+      images: imagesWithSerial,
+      currentPage: page,
+      totalPages: totalPages,
+      totalCount: totalCount,
+      apiCall: url,
+      curlCommand: curlCommand,
+      apiResponse: responseData,
+      error: null,
+    }
+  } catch (error) {
+    return {
       images: [],
-      totalCount: 0,
       currentPage: 1,
-      totalPages: 0,
+      totalPages: 1,
+      totalCount: 0,
+      apiCall: "",
+      curlCommand: "",
+      apiResponse: null,
+      error: error.message,
     }
   }
 }
 
 // Step 2: Process images with selected AI model
-export async function processImagesWithGPT(images, prompt, selectedImageIndices = null, modelType = "gpt") {
+export async function processImagesWithGPT(images, prompt, indicesToProcess = null, modelType = "gpt", batchSize = 10) {
   try {
-    // If selectedImageIndices is provided and not empty, filter images to process only selected ones
-    const imagesToProcess =
-      selectedImageIndices && selectedImageIndices.length > 0
-        ? selectedImageIndices.map((index) => images[index])
-        : images
+    // Determine which images to process
+    const imagesToProcess = indicesToProcess
+      ? indicesToProcess.map((index) => ({ ...images[index], originalIndex: index }))
+      : images.map((image, index) => ({ ...image, originalIndex: index }))
 
-    console.log(
-      `Starting ${modelType.toUpperCase()} processing for ${imagesToProcess.length} images with prompt: ${prompt}`,
-    )
-    console.log(
-      selectedImageIndices && selectedImageIndices.length > 0
-        ? `Processing ${selectedImageIndices.length} selected images`
-        : `Processing all ${images.length} images`,
-    )
+    const totalImages = imagesToProcess.length
 
-    const results = []
-    let processedCount = 0
-    let promptTokens = 0
-    let completionTokens = 0
+    if (totalImages === 0) {
+      return {
+        results: [],
+        processedCount: 0,
+        errorCount: 0,
+        promptTokens: 0,
+        completionTokens: 0,
+        totalTokens: 0,
+        modelUsed: modelType,
+      }
+    }
+
+    // Split images into batches
+    const batches = []
+    for (let i = 0; i < imagesToProcess.length; i += batchSize) {
+      batches.push(imagesToProcess.slice(i, i + batchSize))
+    }
+
+    let allResults = []
+    let totalPromptTokens = 0
+    let totalCompletionTokens = 0
     let totalTokens = 0
+    let processedCount = 0
     let errorCount = 0
 
-    // Create a map to track which images have been processed
-    const processedMap = new Map()
+    // Process each batch
+    for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+      const batch = batches[batchIndex]
 
-    // Process selected images sequentially
-    for (let i = 0; i < imagesToProcess.length; i++) {
-      const imageToProcess = imagesToProcess[i]
-      const imageUrl = imageToProcess.image
-      const originalIndex = images.findIndex((img) => img.image === imageUrl)
+      // Process all images in the current batch in parallel
+      const batchPromises = batch.map(async (imageData, i) => {
+        try {
+          let result
+          if (modelType === "gemini") {
+            result = await processImageWithGemini(imageData.image, prompt)
+          } else {
+            result = await processImageWithGPT(imageData.image, prompt)
+          }
 
-      console.log(
-        `Processing image ${i + 1}/${imagesToProcess.length}: ${imageUrl} (Serial #${imageToProcess.serialNumber})`,
-      )
+          return {
+            image: imageData.image,
+            label: result.label,
+            promptTokens: result.promptTokens || 0,
+            completionTokens: result.completionTokens || 0,
+            totalTokens: result.totalTokens || 0,
+            modelUsed: modelType,
+            processed: true,
+            error: false,
+            originalIndex: imageData.originalIndex,
+          }
+        } catch (error) {
+          return {
+            image: imageData.image,
+            label: `Error: ${error.message}`,
+            promptTokens: 0,
+            completionTokens: 0,
+            totalTokens: 0,
+            modelUsed: modelType,
+            processed: true,
+            error: true,
+            detailedError: error.message,
+            originalIndex: imageData.originalIndex,
+          }
+        }
+      })
 
-      try {
-        // Call the appropriate AI model based on modelType
-        let result
-        if (modelType === "gemini") {
-          result = await getLabelFromImageUrlWithGemini(imageUrl, prompt)
+      // Wait for all images in the batch to complete
+      const batchResults = await Promise.all(batchPromises)
+
+      // Accumulate results and tokens
+      allResults = allResults.concat(batchResults)
+
+      // Count successful and failed processing
+      batchResults.forEach((result) => {
+        if (result.error) {
+          errorCount++
         } else {
-          result = await getLabelFromImageUrlWithGPT(imageUrl, prompt)
+          processedCount++
+          totalPromptTokens += result.promptTokens || 0
+          totalCompletionTokens += result.completionTokens || 0
+          totalTokens += result.totalTokens || 0
         }
-
-        // Update the image object with results
-        const processedImage = {
-          ...imageToProcess,
-          processed: true,
-          label: result.label,
-          tokens: result.tokens,
-          modelUsed: modelType,
-        }
-
-        // Mark this image as processed in our map
-        processedMap.set(imageUrl, processedImage)
-
-        processedCount++
-
-        // Update tokens
-        const tokens = result.tokens || { prompt: 0, completion: 0, total: 0 }
-        promptTokens += tokens.prompt
-        completionTokens += tokens.completion
-        totalTokens += tokens.total
-
-        console.log(
-          `Image ${i + 1} processed with ${modelType}. Tokens used: prompt=${tokens.prompt}, completion=${tokens.completion}, total=${tokens.total}`,
-        )
-      } catch (error) {
-        console.error(`Failed to process image ${i + 1}:`, error)
-
-        // Add error information to the image object
-        const errorImage = {
-          ...imageToProcess,
-          processed: true,
-          label: `Error: ${error.message || "Failed to process image"}`,
-          error: true,
-          modelUsed: modelType,
-        }
-
-        // Mark this image as processed (with error) in our map
-        processedMap.set(imageUrl, errorImage)
-
-        errorCount++
-      }
+      })
     }
 
-    // Create the final results array, preserving the original order
-    // For each image in the original array, either use the processed version or keep as is
-    const finalResults = images.map((img) => {
-      if (processedMap.has(img.image)) {
-        return processedMap.get(img.image)
-      }
-      return img
-    })
-
-    console.log(`Processing complete. ${processedCount} images processed successfully, ${errorCount} errors.`)
-    console.log(`Total tokens used: ${totalTokens} (Prompt: ${promptTokens}, Completion: ${completionTokens})`)
-
-    return makeSerializable({
-      results: finalResults,
+    return {
+      results: allResults,
       processedCount,
       errorCount,
-      promptTokens,
-      completionTokens,
-      totalTokens,
+      promptTokens: totalPromptTokens,
+      completionTokens: totalCompletionTokens,
+      totalTokens: totalTokens,
       modelUsed: modelType,
-    })
+    }
   } catch (error) {
-    console.error("Unhandled error in processImagesWithGPT:", error)
     return {
-      error: `An unexpected error occurred: ${error.message || "Unknown error"}`,
+      error: error.message || "Unknown error processing images",
       results: [],
+      processedCount: 0,
+      errorCount: 0,
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+      modelUsed: modelType,
     }
   }
 }
 
-// Helper function to process a single image URL with OpenAI GPT
-async function getLabelFromImageUrlWithGPT(imageUrl, prompt) {
+// Helper function to process a single image with GPT
+async function processImageWithGPT(imageUrl, prompt) {
   try {
-    console.log(`Fetching image from URL: ${imageUrl}`)
-    const imgResponse = await fetch(imageUrl)
-
-    if (!imgResponse.ok) {
-      const errorText = await imgResponse.text()
-      console.error(`Failed to fetch image (${imgResponse.status}): ${errorText}`)
-      throw new Error(`Failed to fetch image: ${imgResponse.status}`)
+    const response = await fetch(imageUrl)
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Failed to fetch image (${response.status}): ${errorText}`)
     }
 
-    const arrayBuffer = await imgResponse.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
-    const base64Image = buffer.toString("base64")
-    const imageDataUri = `data:image/jpeg;base64,${base64Image}`
-    console.log("Image fetched and converted to base64 successfully")
+    const arrayBuffer = await response.arrayBuffer()
+    const base64Image = Buffer.from(arrayBuffer).toString("base64")
 
-    return await callGpt(prompt, imageDataUri, imageUrl)
+    return await callGPTWithImage(base64Image, prompt)
   } catch (error) {
-    console.error("Error processing image URL with GPT:", error)
-    throw new Error(`Error fetching image: ${error.message || String(error)}`)
+    throw new Error(`Error processing image URL with GPT: ${error.message}`)
   }
 }
 
-// Helper function to process a single image URL with Google Gemini
-async function getLabelFromImageUrlWithGemini(imageUrl, prompt) {
+// Helper function to process a single image with Gemini
+async function processImageWithGemini(imageUrl, prompt) {
   try {
-    console.log(`Fetching image from URL for Gemini: ${imageUrl}`)
-    const imgResponse = await fetch(imageUrl)
-
-    if (!imgResponse.ok) {
-      const errorText = await imgResponse.text()
-      console.error(`Failed to fetch image (${imgResponse.status}): ${errorText}`)
-      throw new Error(`Failed to fetch image: ${imgResponse.status}`)
+    const response = await fetch(imageUrl)
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Failed to fetch image (${response.status}): ${errorText}`)
     }
 
-    const arrayBuffer = await imgResponse.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
-    const base64Image = buffer.toString("base64")
-    console.log("Image fetched and converted to base64 successfully for Gemini")
+    const arrayBuffer = await response.arrayBuffer()
+    const base64Image = Buffer.from(arrayBuffer).toString("base64")
 
-    return await callGemini(prompt, base64Image, imageUrl)
+    return await callGeminiWithImage(base64Image, prompt)
   } catch (error) {
-    console.error("Error processing image URL with Gemini:", error)
-    throw new Error(`Error fetching image: ${error.message || String(error)}`)
+    throw new Error(`Error processing image URL with Gemini: ${error.message}`)
   }
 }
 
@@ -353,212 +286,360 @@ async function getLabelFromUploadedFile(file, prompt, modelType = "gpt") {
   }
 }
 
-// Helper function to call GPT
-async function callGpt(prompt, imageDataUri, imageSource) {
+// Legacy function for processing uploaded files (kept for backward compatibility)
+async function processUploadedFile(file, prompt, modelType) {
   try {
-    console.log(`Calling GPT for image: ${imageSource.substring(0, 50)}...`)
-    console.log(`Using prompt: ${prompt}`)
+    const arrayBuffer = await file.arrayBuffer()
+    const base64Image = Buffer.from(arrayBuffer).toString("base64")
 
-    // Ensure we're using gpt-4.1-mini model
-    const chatResponse = await openai.chat.completions.create({
-      model: "gpt-4.1-mini",
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a visual analysis assistant examining images from a restaurant or food service environment.",
-        },
-        {
-          role: "user",
-          content: [
-            { type: "text", text: prompt },
-            { type: "image_url", image_url: { url: imageDataUri } },
-          ],
-        },
-      ],
-      max_tokens: 1000,
-    })
-
-    const usage = chatResponse.usage || { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }
-    console.log(`GPT response received. Tokens: ${usage.total_tokens}`)
-
-    return {
-      image: imageSource,
-      label: chatResponse.choices[0].message.content || "No response",
-      tokens: {
-        prompt: usage.prompt_tokens,
-        completion: usage.completion_tokens,
-        total: usage.total_tokens,
-      },
+    if (modelType === "gemini") {
+      return await callGeminiWithImage(base64Image, prompt)
+    } else {
+      return await callGPTWithImage(base64Image, prompt)
     }
   } catch (error) {
-    console.error("Error calling GPT:", error)
-    throw new Error(`Error from GPT: ${error.message || String(error)}`)
+    throw new Error(`Error processing uploaded file with ${modelType}: ${error.message}`)
   }
 }
 
-// Helper function to call Gemini
-async function callGemini(prompt, base64Image, imageSource) {
+// Legacy GPT function (kept for backward compatibility)
+async function callGpt(prompt, imageDataUri, imageSource) {
   try {
-    console.log(`Calling Gemini for image: ${imageSource.substring(0, 50)}...`)
-    console.log(`Using prompt: ${prompt}`)
-
-    // Check if API key is available
-    if (!process.env.GOOGLE_API_KEY) {
-      throw new Error("Google API key is not configured")
-    }
-
-    // Get the Gemini model
-    const model = googleAI.getGenerativeModel({
-      model: "gemini-2.5-flash-preview-04-17",
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: prompt },
+              {
+                type: "image_url",
+                image_url: {
+                  url: imageDataUri,
+                },
+              },
+            ],
+          },
+        ],
+        max_tokens: 300,
+      }),
     })
 
-    // Prepare the content parts
-    const imagePart = {
-      inlineData: {
-        data: base64Image,
-        mimeType: "image/jpeg",
-      },
+    if (!response.ok) {
+      throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`)
     }
 
-    // Create the system prompt and user prompt
-    const systemPrompt =
-      "You are a visual analysis assistant examining images from a restaurant or food service environment."
-    const fullPrompt = `${systemPrompt}\n\n${prompt}`
-
-    // Generate content with the image
-    const result = await model.generateContent([fullPrompt, imagePart])
-
-    const response = await result.response
-    const text = response.text()
-
-    // Estimate token usage (Gemini doesn't provide token counts directly)
-    // This is a rough estimate based on characters
-    const promptChars = fullPrompt.length + 1000 // Add 1000 for image (very rough estimate)
-    const completionChars = text.length
-
-    // Estimate tokens (roughly 4 chars per token)
-    const promptTokens = Math.ceil(promptChars / 4)
-    const completionTokens = Math.ceil(completionChars / 4)
-    const totalTokens = promptTokens + completionTokens
-
-    console.log(`Gemini response received. Estimated tokens: ${totalTokens}`)
+    const data = await response.json()
+    const usage = data.usage || {}
 
     return {
       image: imageSource,
-      label: text || "No response",
+      label: data.choices[0]?.message?.content || "No response",
       tokens: {
-        prompt: promptTokens,
-        completion: completionTokens,
-        total: totalTokens,
+        prompt: usage.prompt_tokens || 0,
+        completion: usage.completion_tokens || 0,
+        total: usage.total_tokens || 0,
       },
+      processed: true,
+      modelUsed: "gpt",
     }
   } catch (error) {
-    console.error("Error calling Gemini:", error)
-    throw new Error(`Error from Gemini: ${error.message || String(error)}`)
+    throw new Error(`Error calling GPT: ${error.message}`)
+  }
+}
+
+// Legacy Gemini function (kept for backward compatibility)
+async function callGemini(prompt, base64Image, imageSource) {
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GOOGLE_API_KEY}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                { text: prompt },
+                {
+                  inline_data: {
+                    mime_type: "image/jpeg",
+                    data: base64Image,
+                  },
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            maxOutputTokens: 300,
+          },
+        }),
+      },
+    )
+
+    if (!response.ok) {
+      throw new Error(`Gemini API error: ${response.status} ${response.statusText}`)
+    }
+
+    const data = await response.json()
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "No response"
+
+    // Estimate tokens
+    const estimatedPromptTokens = Math.ceil(prompt.length / 4) + 258
+    const estimatedCompletionTokens = Math.ceil(text.length / 4)
+    const totalTokens = estimatedPromptTokens + estimatedCompletionTokens
+
+    return {
+      image: imageSource,
+      label: text,
+      tokens: {
+        prompt: estimatedPromptTokens,
+        completion: estimatedCompletionTokens,
+        total: totalTokens,
+      },
+      processed: true,
+      modelUsed: "gemini",
+    }
+  } catch (error) {
+    throw new Error(`Error calling Gemini: ${error.message}`)
+  }
+}
+
+// Function to call OpenAI GPT with image
+async function callGPTWithImage(base64Image, prompt) {
+  try {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: prompt },
+              {
+                type: "image_url",
+                image_url: {
+                  url: `data:image/jpeg;base64,${base64Image}`,
+                },
+              },
+            ],
+          },
+        ],
+        max_tokens: 300,
+      }),
+    })
+
+    if (!response.ok) {
+      throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`)
+    }
+
+    const data = await response.json()
+    const usage = data.usage || {}
+
+    return {
+      label: data.choices[0]?.message?.content || "No response",
+      promptTokens: usage.prompt_tokens || 0,
+      completionTokens: usage.completion_tokens || 0,
+      totalTokens: usage.total_tokens || 0,
+    }
+  } catch (error) {
+    throw new Error(`Error calling GPT: ${error.message}`)
+  }
+}
+
+// Function to call Google Gemini with image
+async function callGeminiWithImage(base64Image, prompt) {
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GOOGLE_API_KEY}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                { text: prompt },
+                {
+                  inline_data: {
+                    mime_type: "image/jpeg",
+                    data: base64Image,
+                  },
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            maxOutputTokens: 300,
+          },
+        }),
+      },
+    )
+
+    if (!response.ok) {
+      throw new Error(`Gemini API error: ${response.status} ${response.statusText}`)
+    }
+
+    const data = await response.json()
+
+    // Extract the text from Gemini response
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "No response"
+
+    // Estimate tokens (Gemini doesn't provide exact token counts in the response)
+    const estimatedPromptTokens = Math.ceil(prompt.length / 4) + 258 // ~258 tokens for image
+    const estimatedCompletionTokens = Math.ceil(text.length / 4)
+    const totalTokens = estimatedPromptTokens + estimatedCompletionTokens
+
+    return {
+      label: text,
+      promptTokens: estimatedPromptTokens,
+      completionTokens: estimatedCompletionTokens,
+      totalTokens: totalTokens,
+    }
+  } catch (error) {
+    throw new Error(`Error calling Gemini: ${error.message}`)
   }
 }
 
 // Legacy function for manual image uploads (kept for backward compatibility)
 export async function analyzeImages(formData) {
   try {
-    const prompt = formData.get("prompt")
     const inputType = formData.get("input_type")
-    const modelType = formData.get("model_type") || "gpt" // Default to GPT if not specified
+    const prompt = formData.get("prompt")
+    const modelType = formData.get("model_type") || "gpt"
 
-    console.log(`Starting image analysis with input type: ${inputType}, model: ${modelType}`)
-    console.log(`Prompt: ${prompt}`)
+    if (!prompt) {
+      throw new Error("Prompt is required")
+    }
+
+    let results = []
+    let totalFetched = 0
+    let processedCount = 0
+    let promptTokens = 0
+    let completionTokens = 0
+    let totalTokens = 0
 
     if (inputType === "manual") {
-      const results = []
-      let processedCount = 0
-      let promptTokens = 0
-      let completionTokens = 0
-      let totalTokens = 0
-      let errorMessage = ""
-
-      // Handle manual image upload or URL
+      // Handle manual file upload
       const manualFile = formData.get("manual_image")
       const manualUrl = formData.get("manual_url")
 
       if (manualFile && manualFile.size > 0) {
-        console.log(`Processing uploaded file with ${modelType}: ${manualFile.name}, size: ${manualFile.size} bytes`)
+        // Process uploaded file
         try {
-          const result = await getLabelFromUploadedFile(manualFile, prompt, modelType)
+          const result = await processUploadedFile(manualFile, prompt, modelType)
 
-          // Add file name as image property for reference
-          result.image = manualFile.name
-          // Add a flag to indicate this is an uploaded file that needs special handling in the UI
-          result.isUploadedFile = true
+          results.push({
+            image: manualFile.name,
+            label: result.label,
+            promptTokens: result.promptTokens || 0,
+            completionTokens: result.completionTokens || 0,
+            totalTokens: result.totalTokens || 0,
+            modelUsed: modelType,
+            processed: true,
+            isUploadedFile: true,
+          })
 
-          results.push(result)
-          processedCount++
-          const tokens = result.tokens || { prompt: 0, completion: 0, total: 0 }
-          promptTokens += tokens.prompt
-          completionTokens += tokens.completion
-          totalTokens += tokens.total
-          console.log(
-            `File processed with ${modelType}. Tokens used: prompt=${tokens.prompt}, completion=${tokens.completion}, total=${tokens.total}`,
-          )
+          totalFetched = 1
+          processedCount = 1
+          promptTokens = result.promptTokens || 0
+          completionTokens = result.completionTokens || 0
+          totalTokens = result.totalTokens || 0
         } catch (error) {
-          console.error("Failed to process uploaded file:", error)
-          errorMessage = `Error processing uploaded file: ${error.message}`
+          results.push({
+            image: manualFile.name,
+            label: `Error: ${error.message}`,
+            error: true,
+            detailedError: error.message,
+            modelUsed: modelType,
+            processed: true,
+            isUploadedFile: true,
+          })
+          totalFetched = 1
         }
       } else if (manualUrl) {
-        console.log(`Processing image from URL with ${modelType}: ${manualUrl}`)
+        // Process image from URL
         try {
           let result
           if (modelType === "gemini") {
-            result = await getLabelFromImageUrlWithGemini(manualUrl, prompt)
+            result = await processImageWithGemini(manualUrl, prompt)
           } else {
-            result = await getLabelFromImageUrlWithGPT(manualUrl, prompt)
+            result = await processImageWithGPT(manualUrl, prompt)
           }
-          results.push(result)
-          processedCount++
-          const tokens = result.tokens || { prompt: 0, completion: 0, total: 0 }
-          promptTokens += tokens.prompt
-          completionTokens += tokens.completion
-          totalTokens += tokens.total
-          console.log(
-            `URL image processed with ${modelType}. Tokens used: prompt=${tokens.prompt}, completion=${tokens.completion}, total=${tokens.total}`,
-          )
+
+          results.push({
+            image: manualUrl,
+            label: result.label,
+            promptTokens: result.promptTokens || 0,
+            completionTokens: result.completionTokens || 0,
+            totalTokens: result.totalTokens || 0,
+            modelUsed: modelType,
+            processed: true,
+          })
+
+          totalFetched = 1
+          processedCount = 1
+          promptTokens = result.promptTokens || 0
+          completionTokens = result.completionTokens || 0
+          totalTokens = result.totalTokens || 0
         } catch (error) {
-          console.error("Failed to process image URL:", error)
-          errorMessage = `Error processing image URL: ${error.message}`
+          results.push({
+            image: manualUrl,
+            label: `Error: ${error.message}`,
+            error: true,
+            detailedError: error.message,
+            modelUsed: modelType,
+            processed: true,
+          })
+          totalFetched = 1
         }
       } else {
-        errorMessage = "No image file or URL provided for manual input"
-        console.warn(errorMessage)
+        const errorMessage = "Please provide either an image file or image URL"
+        results.push({
+          image: "No image provided",
+          label: errorMessage,
+          error: true,
+          modelUsed: modelType,
+          processed: true,
+        })
+        totalFetched = 1
       }
+    }
 
-      const totalFetched = manualFile || manualUrl ? 1 : 0
-      const totalCount = totalFetched
-
-      console.log(`Analysis complete. Total images processed: ${processedCount}/${totalFetched}`)
-      console.log(`Total tokens used: ${totalTokens} (Prompt: ${promptTokens}, Completion: ${completionTokens})`)
-
-      return makeSerializable({
-        results,
-        totalFetched,
-        processedCount,
-        promptTokens,
-        completionTokens,
-        totalTokens,
-        totalCount,
-        currentPage: 1,
-        totalPages: 1,
-        error: errorMessage,
-        modelUsed: modelType,
-      })
-    } else {
-      // For ScoutAI, we now use the two-step process
-      return { error: "Please use the new two-step process for ScoutAI images" }
+    return {
+      results,
+      totalFetched,
+      processedCount,
+      promptTokens,
+      completionTokens,
+      totalTokens,
+      modelUsed: modelType,
     }
   } catch (error) {
-    console.error("Unhandled error in analyzeImages:", error)
     return {
-      error: `An unexpected error occurred: ${error.message || "Unknown error"}`,
+      error: error.message || "Unknown error analyzing images",
       results: [],
+      totalFetched: 0,
+      processedCount: 0,
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+      modelUsed: "gpt",
     }
   }
 }
@@ -566,8 +647,9 @@ export async function analyzeImages(formData) {
 // Add this function to fetch events from the Wobot API
 export async function fetchEventsAPI(formData) {
   try {
+    // Extract form data
     const apiKey = formData.get("api_key")
-    const env = formData.get("events_env") || "production"
+    const environment = formData.get("events_env") || "production"
     const limit = Number.parseInt(formData.get("events_limit")) || 10
     const page = Number.parseInt(formData.get("events_page")) || 0
     const fromDate = formData.get("events_from_date")
@@ -576,137 +658,225 @@ export async function fetchEventsAPI(formData) {
     const taskId = formData.get("events_task") || ""
     const cameraId = formData.get("events_camera") || ""
 
-    // Validate required parameters
+    // Validate required fields
     if (!apiKey) {
-      return { error: "API key is required" }
+      throw new Error("API key is required")
     }
 
     if (!fromDate || !toDate) {
-      return { error: "From date and To date are required" }
+      throw new Error("From date and to date are required")
     }
 
-    if (!taskId) {
-      return { error: "Task ID is required" }
-    }
-
-    console.log(
-      `Events API parameters: env=${env}, limit=${limit}, page=${page}, fromDate=${fromDate}, toDate=${toDate}, locationId=${locationId}, taskId=${taskId}, cameraId=${cameraId}`,
-    )
-
-    const baseUrl = env === "production" ? "https://api.wobot.ai" : "https://api-staging.wobot.ai"
-    const endpoint = `${baseUrl}/client/v2/events/get/${limit}/${page}`
-
-    // Build query parameters
-    const params = new URLSearchParams({
-      from: fromDate,
-      to: toDate,
-    })
-
-    // Add optional parameters if provided
+    // Build the API URL
+    const baseUrl = environment === "production" 
+      ? "https://api.wobot.ai/client/v2" 
+      : "https://api-staging.wobot.ai/client/v2"
+    
+    let queryParams = `?from=${fromDate}&to=${toDate}`
+    
     if (locationId) {
-      params.append("location", locationId)
+      queryParams += `&location=${locationId}`
     }
-
+    
     if (taskId) {
-      params.append("task", taskId)
+      queryParams += `&task=${taskId}`
     }
-
+    
     if (cameraId) {
-      params.append("camera", cameraId)
+      queryParams += `&camera=${cameraId}`
     }
 
-    // Construct the full URL for logging
-    const fullUrl = `${endpoint}?${params.toString()}`
+    const fullUrl = `${baseUrl}/events/get/${limit}/${page}${queryParams}`
 
-    // Create curl command for display on frontend
+    // Create curl command for debugging
     const curlCommand = `curl -X GET "${fullUrl}" -H "Authorization: Bearer ${apiKey}"`
-
-    console.log("=== EVENTS API REQUEST ===")
-    console.log(`URL: ${fullUrl}`)
-    console.log(`Headers: { Authorization: "Bearer ${apiKey.substring(0, 5)}..." }`)
-    console.log(`Curl: ${curlCommand.replace(apiKey, apiKey.substring(0, 5) + "...")}`)
 
     const response = await fetch(fullUrl, {
       headers: {
         Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
       },
+      cache: "no-store",
     })
-
-    console.log("=== EVENTS API RESPONSE ===")
-    console.log(`Status: ${response.status} ${response.statusText}`)
 
     if (!response.ok) {
       const errorText = await response.text()
-      console.error(`Error response body: ${errorText}`)
-      throw new Error(`Failed to fetch events: ${response.status} - ${errorText}`)
+      throw new Error(`API request failed: ${response.status} ${response.statusText} - ${errorText}`)
     }
 
     const responseData = await response.json()
 
-    // Log the complete response structure
-    console.log("Response structure:", JSON.stringify(responseData, null, 2))
-
-    // Extract events array from the nested data.data structure
+    // Extract events from the response
     const events = responseData.data?.data || []
-
-    // Extract pagination info from the nested structure
     const totalCount = responseData.data?.total || 0
-    const totalPages = responseData.data?.totalPages || 1
-    const hasNextPage = responseData.data?.hasNextPage || false
+    const totalPages = Math.ceil(totalCount / limit)
 
-    console.log(`Events returned: ${events.length} of ${totalCount} total (page ${page} of ${totalPages})`)
+    // Transform events into image objects for the UI
+    const images = events.map((event, index) => ({
+      image: event.image || "",
+      serialNumber: page * limit + index + 1,
+      eventData: event,
+    }))
 
-    if (events.length === 0) {
-      console.warn("⚠️ API returned zero events. Check if this is expected.")
-      if (responseData.message) {
-        console.log(`API message: ${responseData.message}`)
+    return {
+      images,
+      currentPage: page + 1, // Convert to 1-indexed for UI
+      totalPages: Math.max(1, totalPages),
+      totalCount,
+      apiCall: fullUrl,
+      curlCommand,
+      apiResponse: responseData,
+      error: null,
+    }
+  } catch (error) {
+    return {
+      images: [],
+      currentPage: 1,
+      totalPages: 1,
+      totalCount: 0,
+      apiCall: "",
+      curlCommand: "",
+      apiResponse: null,
+      error: error.message,
+    }
+  }
+}
+
+// Add this function to fetch DriveThru data from the Wobot API
+export async function fetchDriveThruAPI(formData) {
+  try {
+    // Extract and validate form data
+    const apiKey = formData.get("api_key")
+    const environment = formData.get("drivethru_env") || "production"
+    const driveThruType = formData.get("drivethru_type") || "detections"
+    const limit = Number.parseInt(formData.get("drivethru_limit")) || 10
+    const page = Number.parseInt(formData.get("drivethru_page")) || 0
+    const fromDate = formData.get("drivethru_from_date")
+    const toDate = formData.get("drivethru_to_date")
+    const locationId = formData.get("drivethru_location") || ""
+    const taskId = formData.get("drivethru_task") || ""
+    const cameraId = formData.get("drivethru_camera") || ""
+
+    // Validate required fields
+    if (!apiKey?.trim()) {
+      throw new Error("API key is required")
+    }
+
+    if (!fromDate || !toDate) {
+      throw new Error("From date and to date are required")
+    }
+
+    // Validate date format
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/
+    if (!dateRegex.test(fromDate) || !dateRegex.test(toDate)) {
+      throw new Error("Invalid date format. Use YYYY-MM-DD")
+    }
+
+    // Build the API URL
+    const baseUrl = environment === "production" ? "https://api.wobot.ai" : "https://api-staging.wobot.ai"
+    const apiType = driveThruType === "journey" ? "journey" : "detections"
+    
+    let queryParams = `?from=${fromDate}&to=${toDate}`
+    
+    if (locationId) {
+      queryParams += `&location=${locationId}`
+    }
+    
+    if (taskId) {
+      queryParams += `&task=${taskId}`
+    }
+    
+    if (cameraId) {
+      queryParams += `&camera=${cameraId}`
+    }
+
+    const fullUrl = `${baseUrl}/client/v2/drivethru/${apiType}/get/${limit}/${page}${queryParams}`
+
+    // Create curl command for debugging
+    const curlCommand = `curl -X GET "${fullUrl}" -H "Authorization: Bearer ${apiKey}"`
+
+    const response = await fetch(fullUrl, {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      cache: "no-store",
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`API request failed: ${response.status} ${response.statusText} - ${errorText}`)
+    }
+
+    const responseData = await response.json()
+
+    // Handle different response structures
+    let driveThruData = []
+    let totalCount = 0
+    
+    if (responseData.status === 200) {
+      if (apiType === "journey") {
+        // Journey API returns journeys with multiple images per journey
+        const journeys = responseData.data?.data || []
+        totalCount = responseData.data?.total || 0
+        
+        // Flatten journey images into individual image objects
+        journeys.forEach((journey, journeyIndex) => {
+          const images = journey.images || []
+          images.forEach((imageData, imageIndex) => {
+            driveThruData.push({
+              image: imageData.image || "",
+              serialNumber: page * limit + driveThruData.length + 1,
+              eventData: {
+                ...imageData,
+                journeyId: journey._id,
+                journey: journey._id,
+                lp: journey.lp || "",
+                lpr: journey.lpr || "",
+                metadata: journey.metadata || {},
+                imageType: imageData.type || "unknown",
+                stationData: imageData.stationData || {},
+              },
+            })
+          })
+        })
+      } else {
+        // Detections API returns individual detections
+        const detections = responseData.data?.data || []
+        totalCount = responseData.data?.total || 0
+        
+        driveThruData = detections.map((detection, index) => ({
+          image: detection.image || "",
+          serialNumber: page * limit + index + 1,
+          eventData: detection,
+        }))
       }
     }
 
-    // Create image objects from events
-    const imageObjects = events.map((event, index) => ({
-      image: event.image,
-      processed: false,
-      label: null,
-      tokens: null,
-      error: null,
-      serialNumber: page * limit + index + 1, // Calculate global serial number
-      eventData: event, // Store the full event data for reference
-    }))
+    const totalPages = Math.ceil(totalCount / limit)
 
-    // Ensure the response is serializable
-    const serializedResponse = {
-      status: responseData.status,
-      message: responseData.message || "",
-      data: {
-        page: page,
-        limit: limit,
-        totalPages: totalPages,
-        total: totalCount,
-        hasNextPage: hasNextPage,
-        data: events,
-      },
-    }
-
-    return makeSerializable({
-      images: imageObjects,
-      totalCount,
-      currentPage: page + 1, // Convert to 1-indexed for display
-      totalPages,
-      apiPage: page,
-      apiCall: fullUrl,
-      curlCommand: curlCommand.replace(apiKey, apiKey.substring(0, 5) + "..."),
-      apiResponse: serializedResponse,
-    })
-  } catch (error) {
-    console.error("=== EVENTS API ERROR ===")
-    console.error(error)
     return {
-      error: error.message || "Unknown error fetching events",
+      images: driveThruData,
+      currentPage: page + 1, // Convert to 1-indexed for UI
+      totalPages: Math.max(1, totalPages),
+      totalCount,
+      apiCall: fullUrl,
+      curlCommand,
+      apiResponse: responseData,
+      error: null,
+    }
+  } catch (error) {
+    return {
       images: [],
-      totalCount: 0,
       currentPage: 1,
-      totalPages: 0,
+      totalPages: 1,
+      totalCount: 0,
+      apiCall: "",
+      curlCommand: "",
+      apiResponse: null,
+      error: error.message,
     }
   }
 }

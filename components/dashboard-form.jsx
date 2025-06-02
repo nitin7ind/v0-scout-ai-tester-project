@@ -60,6 +60,22 @@ export default function DashboardForm({
   onEventsLocationChange,
   onEventsTaskChange,
   onEventsCameraChange,
+  // DriveThru API specific props
+  isDriveThruKeyValid = false,
+  driveThruApiKey = "",
+  driveThruEnvironment = "production",
+  driveThruLocations = [],
+  driveThruTasks = [],
+  driveThruCameras = [],
+  driveThruLocation = "",
+  driveThruTask = "",
+  driveThruCamera = "",
+  driveThruPage = 0,
+  onDriveThruApiValidate,
+  onDriveThruApiReset,
+  onDriveThruLocationChange,
+  onDriveThruTaskChange,
+  onDriveThruCameraChange,
 }) {
   const [inputType, setInputType] = useState(activeMode)
   const [selectedTask, setSelectedTask] = useState("custom") // Set custom as default
@@ -299,6 +315,17 @@ export default function DashboardForm({
                 onChange={() => handleInputTypeChange("events")}
               />
               <label htmlFor="events">Events API</label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="radio"
+                id="drivethru"
+                name="input_type"
+                value="drivethru"
+                checked={inputType === "drivethru"}
+                onChange={() => handleInputTypeChange("drivethru")}
+              />
+              <label htmlFor="drivethru">DriveThru API</label>
             </div>
           </div>
         </div>
@@ -683,6 +710,179 @@ export default function DashboardForm({
           </div>
         )}
 
+        {inputType === "drivethru" && (
+          <div className="space-y-4">
+            {/* API Key section - only show if not validated */}
+            {!isDriveThruKeyValid ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label htmlFor="api_key" className="block text-sm font-medium">
+                      API Key
+                    </label>
+                    <input
+                      id="api_key"
+                      name="api_key"
+                      type="password"
+                      placeholder="Enter your Wobot API key"
+                      className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label htmlFor="drivethru_env" className="block text-sm font-medium">
+                      Environment
+                    </label>
+                    <select
+                      id="drivethru_env"
+                      name="drivethru_env"
+                      className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                      defaultValue="production"
+                    >
+                      <option value="production">Production</option>
+                      <option value="staging">Staging</option>
+                    </select>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const apiKey = document.getElementById("api_key").value
+                    const env = document.getElementById("drivethru_env").value
+                    if (onDriveThruApiValidate) onDriveThruApiValidate(apiKey, env)
+                  }}
+                  className="w-full py-2 px-4 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 disabled:opacity-50"
+                >
+                  Validate API Key
+                </button>
+              </div>
+            ) : (
+              /* DriveThru API configuration - show after API key is validated */
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-medium">DriveThru API Query</h3>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onDriveThruApiReset) onDriveThruApiReset()
+                    }}
+                    className="text-sm text-blue-600 dark:text-blue-400"
+                  >
+                    Change API Key
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label htmlFor="drivethru_type" className="block text-sm font-medium">
+                      DriveThru Data Type
+                    </label>
+                    <select
+                      id="drivethru_type"
+                      name="drivethru_type"
+                      className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                      defaultValue="detections"
+                    >
+                      <option value="detections">Detections</option>
+                      <option value="journey">Journey</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label htmlFor="drivethru_location" className="block text-sm font-medium">
+                      Location (Optional)
+                    </label>
+                    <select
+                      id="drivethru_location"
+                      name="drivethru_location"
+                      value={driveThruLocation || ""}
+                      onChange={(e) => {
+                        if (onDriveThruLocationChange) {
+                          onDriveThruLocationChange(e.target.value)
+                        }
+                      }}
+                      className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                    >
+                      <option value="">All Locations</option>
+                      {driveThruLocations &&
+                        driveThruLocations.map((location) => (
+                          <option key={location._id} value={location._id}>
+                            {location.area} ({location.locationId})
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label htmlFor="drivethru_limit" className="block text-sm font-medium">
+                      Results Per Page
+                    </label>
+                    <input
+                      id="drivethru_limit"
+                      name="drivethru_limit"
+                      type="number"
+                      min="1"
+                      max="50"
+                      defaultValue="10"
+                      className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label htmlFor="drivethru_page" className="block text-sm font-medium">
+                      Page
+                    </label>
+                    <input
+                      id="drivethru_page"
+                      name="drivethru_page"
+                      type="number"
+                      min="0"
+                      defaultValue="0"
+                      className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label htmlFor="drivethru_from_date" className="block text-sm font-medium">
+                      From Date
+                    </label>
+                    <input
+                      id="drivethru_from_date"
+                      name="drivethru_from_date"
+                      type="date"
+                      defaultValue={getDefaultFromDate()}
+                      className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label htmlFor="drivethru_to_date" className="block text-sm font-medium">
+                      To Date
+                    </label>
+                    <input
+                      id="drivethru_to_date"
+                      name="drivethru_to_date"
+                      type="date"
+                      defaultValue={yesterdayDate}
+                      className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Hidden fields to store API key and environment - always include these */}
+            <input type="hidden" name="api_key" value={driveThruApiKey || ""} />
+            <input type="hidden" name="drivethru_env" value={driveThruEnvironment || "production"} />
+          </div>
+        )}
+
         {/* Display error message if any */}
         {error && (
           <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-red-600 dark:text-red-400">
@@ -694,7 +894,7 @@ export default function DashboardForm({
           type="submit"
           className="w-full py-2 px-4 border border-blue-600 dark:border-blue-500 text-blue-600 dark:text-blue-400 font-medium rounded-md bg-transparent hover:bg-blue-50 dark:hover:bg-blue-900/20"
         >
-          {inputType === "scoutai" ? "Fetch Images" : "Analyze"}
+          {inputType === "scoutai" ? "Fetch Images" : inputType === "events" ? "Fetch Events" : inputType === "drivethru" ? "Fetch DriveThru Data" : "Analyze"}
         </button>
       </form>
 
