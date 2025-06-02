@@ -22,7 +22,7 @@
     },
     {
       "id": "table-clean",
-      "name": "Table clean",
+      "name": "Table Clean",
       "prompt": "Analyze this image of restaurant tables and determine if they are clean or not. Describe any visible debris, stains, or mess. If food is present on the table with a person sitting, then its table occupied.  Consider Occupied table to be clean. Reply with Clean or Not Clean or Occupied. Nothing else."
     },
     {

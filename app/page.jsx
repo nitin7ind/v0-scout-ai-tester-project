@@ -1530,18 +1530,23 @@ export default function Dashboard() {
           </div>
 
           <div className="mt-4">
-            <button
-              onClick={() => handleDownload("json")}
-              className="px-3 py-1 bg-purple-600 text-white rounded-md hover:bg-purple-700 mr-2"
-            >
-              Download JSON
-            </button>
-            <button
-              onClick={() => handleDownload("csv")}
-              className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700"
-            >
-              Download CSV
-            </button>
+            <div className="flex items-center gap-1 border border-gray-300 dark:border-gray-600 rounded-md overflow-hidden w-fit">
+              <button
+                onClick={() => handleDownload("json")}
+                className="px-3 py-1 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                title="Download as JSON"
+              >
+                JSON
+              </button>
+              <div className="w-px h-6 bg-gray-300 dark:bg-gray-600"></div>
+              <button
+                onClick={() => handleDownload("csv")}
+                className="px-3 py-1 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                title="Download as CSV"
+              >
+                CSV
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1577,34 +1582,50 @@ export default function Dashboard() {
 
             <div className="flex items-center gap-2">
               {/* Download buttons - always available when there are images */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 border border-gray-300 dark:border-gray-600 rounded-md overflow-hidden">
                 <button
                   onClick={() => handleDownload("json")}
-                  className="px-3 py-1 bg-purple-600 text-white rounded-md hover:bg-purple-700 text-sm"
+                  className="px-3 py-1 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                   title="Download as JSON"
                 >
                   JSON
                 </button>
+                <div className="w-px h-6 bg-gray-300 dark:bg-gray-600"></div>
                 <button
                   onClick={() => handleDownload("csv")}
-                  className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm"
+                  className="px-3 py-1 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                   title="Download as CSV"
                 >
                   CSV
                 </button>
               </div>
 
-              {/* Process with selected model button - only show when images are selected */}
-              {!isProcessing && selectedImages.length > 0 && (
-                <button
-                  onClick={handleProcessImages}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                  disabled={!prompt}
-                >
-                  Process {selectedImages.length} Selected
-                  {isDevMode ? ` with ${getFriendlyModelName(selectedModel)}` : ""}
-                </button>
-              )}
+              {/* Process with selected model button - always show but disabled when appropriate */}
+              <button
+                onClick={handleProcessImages}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  !isProcessing && selectedImages.length > 0 && prompt
+                    ? "bg-blue-600 text-white hover:bg-blue-700"
+                    : "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                }`}
+                disabled={isProcessing || selectedImages.length === 0 || !prompt}
+                title={
+                  !prompt 
+                    ? "Select a prompt to process images"
+                    : selectedImages.length === 0
+                    ? "Select images to process"
+                    : isProcessing
+                    ? "Processing in progress..."
+                    : "Process selected images"
+                }
+              >
+                {isProcessing 
+                  ? "Processing..." 
+                  : selectedImages.length > 0 
+                    ? `Process ${selectedImages.length} Selected${isDevMode ? ` with ${getFriendlyModelName(selectedModel)}` : ""}`
+                    : "Process Selected"
+                }
+              </button>
 
               {/* Pagination controls */}
               {pagination && pagination.totalPages > 1 && (
@@ -1975,17 +1996,18 @@ export default function Dashboard() {
             <h2 className="text-xl font-medium">Manual Upload Results ({results.length})</h2>
             
             {/* Download buttons for manual results */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 border border-gray-300 dark:border-gray-600 rounded-md overflow-hidden">
               <button
                 onClick={() => handleDownload("json")}
-                className="px-3 py-1 bg-purple-600 text-white rounded-md hover:bg-purple-700 text-sm"
+                className="px-3 py-1 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 title="Download as JSON"
               >
                 JSON
               </button>
+              <div className="w-px h-6 bg-gray-300 dark:bg-gray-600"></div>
               <button
                 onClick={() => handleDownload("csv")}
-                className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm"
+                className="px-3 py-1 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 title="Download as CSV"
               >
                 CSV
