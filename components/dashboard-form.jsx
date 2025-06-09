@@ -86,6 +86,10 @@ export default function DashboardForm({
   const yesterdayDate = getYesterdayDate()
   const [companyId, setCompanyId] = useState("")
   const [error, setError] = useState(null)
+  
+  // Add state for Scout AI task selection
+  const [selectedTaskId, setSelectedTaskId] = useState(scoutAITasks.length > 0 ? scoutAITasks[0].id : "")
+  const [isCustomTask, setIsCustomTask] = useState(false)
 
   // Check for company ID in URL on component mount
   useEffect(() => {
@@ -406,20 +410,65 @@ export default function DashboardForm({
                 <label htmlFor="task_id" className="block text-sm font-medium">
                   Task
                 </label>
-                <select
-                  id="task_id"
-                  name="task_id"
-                  className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                  defaultValue={scoutAITasks.length > 0 ? scoutAITasks[0].id : ""}
-                  required
-                >
-                  <option value="">Select a task...</option>
-                  {scoutAITasks.map((task) => (
-                    <option key={task.id} value={task.id}>
-                      {task.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <select
+                    id="task_id"
+                    name="task_id"
+                    value={isCustomTask ? "custom" : selectedTaskId}
+                    onChange={(e) => {
+                      if (e.target.value === "custom") {
+                        setIsCustomTask(true)
+                        setSelectedTaskId("")
+                      } else {
+                        setIsCustomTask(false)
+                        setSelectedTaskId(e.target.value)
+                      }
+                    }}
+                    className={cn(
+                      "w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600",
+                      isCustomTask && "hidden"
+                    )}
+                  >
+                    <option value="">Select a task...</option>
+                    {scoutAITasks.map((task) => (
+                      <option key={task.id} value={task.id}>
+                        {task.name}
+                      </option>
+                    ))}
+                    <option value="custom">+ Enter Custom Task ID</option>
+                  </select>
+                  
+                  {isCustomTask && (
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={selectedTaskId}
+                        onChange={(e) => setSelectedTaskId(e.target.value)}
+                        placeholder="Enter task ID (e.g. 681b97b6d80705cc948ddfe4)"
+                        className="flex-1 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsCustomTask(false)
+                          setSelectedTaskId(scoutAITasks.length > 0 ? scoutAITasks[0].id : "")
+                        }}
+                        className="px-3 py-2 text-sm border rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
+                        title="Back to predefined tasks"
+                      >
+                        ↩
+                      </button>
+                    </div>
+                  )}
+                  
+                  {/* Hidden input to ensure the correct value is submitted */}
+                  <input
+                    type="hidden"
+                    name="task_id_final"
+                    value={selectedTaskId}
+                  />
+                </div>
               </div>
 
               <div className="space-y-2">
