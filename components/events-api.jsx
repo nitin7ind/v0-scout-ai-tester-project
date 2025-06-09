@@ -46,7 +46,7 @@ export default function EventsAPI({ isDevMode = false }) {
   // Helper function to get default from date (30 days ago)
   function getDefaultFromDate() {
     const date = new Date()
-    date.setDate(date.getDate() - 30)
+    date.setDate(date.getDate() - 3)
     return date.toISOString().split("T")[0]
   }
 

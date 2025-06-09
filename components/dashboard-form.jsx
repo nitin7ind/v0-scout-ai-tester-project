@@ -9,7 +9,7 @@ import { scoutAITasks } from "@/lib/scout-ai-tasks"
 // Get default from date (30 days ago)
 function getDefaultFromDate() {
   const date = new Date()
-  date.setDate(date.getDate() - 30)
+  date.setDate(date.getDate() - 3)
   return date.toISOString().split("T")[0]
 }
 
@@ -412,8 +412,8 @@ export default function DashboardForm({
                 </label>
                 <div className="relative">
                   <select
-                    id="task_id"
-                    name="task_id"
+                    id="task_id_select"
+                    name="task_id_select"
                     value={isCustomTask ? "custom" : selectedTaskId}
                     onChange={(e) => {
                       if (e.target.value === "custom") {
@@ -465,7 +465,7 @@ export default function DashboardForm({
                   {/* Hidden input to ensure the correct value is submitted */}
                   <input
                     type="hidden"
-                    name="task_id_final"
+                    name="task_id"
                     value={selectedTaskId}
                   />
                 </div>

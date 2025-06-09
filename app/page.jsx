@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from "react"
 import { useTheme } from "@/components/theme-provider"
-import { fetchScoutAIImages, processImagesWithGPT, analyzeImages, fetchEventsAPI, fetchDriveThruAPI } from "@/app/actions"
+import { processImagesWithGPT, analyzeImages, fetchEventsAPI, fetchDriveThruAPI } from "@/app/actions"
+import { fetchScoutAIImages } from "@/app/actions/scout-ai-actions"
 import DashboardForm from "@/components/dashboard-form"
 import PasswordModal from "@/components/password-modal"
 import Image from "next/image"
