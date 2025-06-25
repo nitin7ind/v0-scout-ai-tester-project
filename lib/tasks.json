@@ -5,11 +5,6 @@
       "name": "SmartSafe Enclosure Open",
       "prompt": "You are a visual analysis assistant examining overhead images of a food prep counter at a QSR (Quick Service Restaurant). Analyse this image for a manager's counter in kitchen to check if the SmartSafe enclosure door is open or closed. If the door is open, the SmartSafe digital screen will likely be visible. The enclosure is a silver block near the floor. If the door is open, Return Enclosure Open or else return Enclosure Closed. Don't return anything else."
     },
-    // {
-    //   "id": "door-blocked",
-    //   "name": "Door Blocked",
-    //   "prompt": "You are an image analysis expert specializing in retail safety and compliance. Analyze the provided image and focus on all visible doorways. Determine whether any door is blocked, defined as having objects, equipment, or obstructions that would prevent it from opening fully or being used as an exit. Ignore minor items that clearly do not impede access or egress. Note that there might be features present as a part of the floor too. If any door is visibly blocked, respond with Door Blocked. If all doors are clear and accessible, respond with Door Not Blocked. Your response must be only one of the two phrases Door Blocked or Door Not Blocked with no additional explanation."
-    // },
     {
       "id": "door-blocked",
       "name": "Door Blocked",
