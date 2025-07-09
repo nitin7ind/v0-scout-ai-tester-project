@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from "react"
 import Image from "next/image"
-import { processImagesWithGPT } from "@/app/actions"
+import { processImagesWithGPT } from "@/app/actions/image-processing"
 import tasksData from "@/lib/tasks.json"
 
-export default function EventsAPI({ isDevMode = false }) {
+export default function EventsAPI({ isDevMode = false, selectedGeminiModel = "gemini-2.5-flash" }) {
   const [apiKey, setApiKey] = useState("")
   const [environment, setEnvironment] = useState("production")
   const [isKeyValid, setIsKeyValid] = useState(false)
@@ -306,9 +306,11 @@ export default function EventsAPI({ isDevMode = false }) {
         serialNumber: index + 1,
       }))
 
-      // Process images with GPT
+      // Process images with appropriate model
       const modelType = isDevMode ? "gpt" : "gemini"
-      const response = await processImagesWithGPT(imagesToProcess, prompt, null, modelType)
+      const batchSize = 10 // Default batch size for events API
+      const geminiModel = selectedGeminiModel // Use the passed geminiModel prop
+      const response = await processImagesWithGPT(imagesToProcess, prompt, null, modelType, batchSize, geminiModel)
 
       if (response.error) {
         throw new Error(response.error)
@@ -333,7 +335,7 @@ export default function EventsAPI({ isDevMode = false }) {
 
   // Get friendly model name for display
   const getFriendlyModelName = (modelType) => {
-    return modelType === "gemini" ? "Glacier-2.5" : "Comet-4.1"
+    return modelType === "gemini" ? "Gemini" : "ChatGPT"
   }
 
   return (

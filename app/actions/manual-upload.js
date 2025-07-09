@@ -6,15 +6,18 @@ import { callGpt } from "./image-processing"
 import { callGemini } from "./image-processing"
 
 // Helper function to process an uploaded file
-export async function getLabelFromUploadedFile(file, prompt, modelType = "gpt") {
+export async function getLabelFromUploadedFile(file, prompt, modelType = "gpt", geminiModel = "gemini-2.5-flash") {
   try {
     console.log(`Processing uploaded file with ${modelType}: ${file.name}, size: ${file.size} bytes`)
+    if (modelType === "gemini") {
+      console.log(`Using Gemini model: ${geminiModel}`)
+    }
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
     const base64Image = buffer.toString("base64")
 
     if (modelType === "gemini") {
-      return await callGemini(prompt, base64Image, "Uploaded Image")
+      return await callGemini(prompt, base64Image, "Uploaded Image", geminiModel)
     } else {
       const imageDataUri = `data:image/jpeg;base64,${base64Image}`
       return await callGpt(prompt, imageDataUri, "Uploaded Image")
@@ -31,8 +34,12 @@ export async function analyzeImages(formData) {
     const prompt = formData.get("prompt")
     const inputType = formData.get("input_type")
     const modelType = formData.get("model_type") || "gpt" // Default to GPT if not specified
+    const geminiModel = formData.get("gemini_model") || "gemini-2.5-flash" // Default Gemini model
 
     console.log(`Starting image analysis with input type: ${inputType}, model: ${modelType}`)
+    if (modelType === "gemini") {
+      console.log(`Using Gemini model: ${geminiModel}`)
+    }
     console.log(`Prompt: ${prompt}`)
 
     if (inputType === "manual") {
@@ -50,12 +57,14 @@ export async function analyzeImages(formData) {
       if (manualFile && manualFile.size > 0) {
         console.log(`Processing uploaded file with ${modelType}: ${manualFile.name}, size: ${manualFile.size} bytes`)
         try {
-          const result = await getLabelFromUploadedFile(manualFile, prompt, modelType)
+          const result = await getLabelFromUploadedFile(manualFile, prompt, modelType, geminiModel)
 
           // Add file name as image property for reference
           result.image = manualFile.name
           // Add a flag to indicate this is an uploaded file that needs special handling in the UI
           result.isUploadedFile = true
+          // Ensure modelUsed is set for pricing calculations
+          result.modelUsed = modelType
 
           results.push(result)
           processedCount++
@@ -66,6 +75,11 @@ export async function analyzeImages(formData) {
           console.log(
             `File processed with ${modelType}. Tokens used: prompt=${tokens.prompt}, completion=${tokens.completion}, total=${tokens.total}`,
           )
+          
+          // Log usage metadata if available
+          if (result.usageMetadata) {
+            console.log("Actual usage metadata:", result.usageMetadata)
+          }
         } catch (error) {
           console.error("Failed to process uploaded file:", error)
           errorMessage = `Error processing uploaded file: ${error.message}`
@@ -75,10 +89,13 @@ export async function analyzeImages(formData) {
         try {
           let result
           if (modelType === "gemini") {
-            result = await getLabelFromImageUrlWithGemini(manualUrl, prompt)
+            result = await getLabelFromImageUrlWithGemini(manualUrl, prompt, geminiModel)
           } else {
             result = await getLabelFromImageUrlWithGPT(manualUrl, prompt)
           }
+          // Ensure modelUsed is set for pricing calculations
+          result.modelUsed = modelType
+          
           results.push(result)
           processedCount++
           const tokens = result.tokens || { prompt: 0, completion: 0, total: 0 }
@@ -88,6 +105,11 @@ export async function analyzeImages(formData) {
           console.log(
             `URL image processed with ${modelType}. Tokens used: prompt=${tokens.prompt}, completion=${tokens.completion}, total=${tokens.total}`,
           )
+          
+          // Log usage metadata if available
+          if (result.usageMetadata) {
+            console.log("Actual usage metadata:", result.usageMetadata)
+          }
         } catch (error) {
           console.error("Failed to process image URL:", error)
           errorMessage = `Error processing image URL: ${error.message}`

@@ -3,6 +3,7 @@
 import { OpenAI } from "openai"
 import { GoogleGenerativeAI } from "@google/generative-ai"
 import { makeSerializable } from "./utils"
+import { logGeminiResponse } from "../../lib/gemini-logger"
 
 // Initialize OpenAI client
 const openai = new OpenAI({
@@ -29,6 +30,7 @@ export async function processImagesWithGPT(
   selectedImageIndices = null,
   modelType = "gpt",
   batchSize = 10,
+  geminiModel = "gemini-2.5-flash", // Default: 2.5 Flash | Dev options: "gemini-1.5-flash", "gemini-2.0-flash-exp"
 ) {
   try {
     // If selectedImageIndices is provided and not empty, filter images to process only selected ones
@@ -40,6 +42,9 @@ export async function processImagesWithGPT(
     console.log(
       `Starting ${modelType.toUpperCase()} processing for ${imagesToProcess.length} images with prompt: ${prompt}`,
     )
+    if (modelType === "gemini") {
+      console.log(`Using Gemini model: ${geminiModel}`)
+    }
 
     // Add batch processing logic
     const BATCH_SIZE = batchSize // Use the provided batch size
@@ -81,7 +86,7 @@ export async function processImagesWithGPT(
           // Call the appropriate AI model based on modelType
           let result
           if (modelType === "gemini") {
-            result = await getLabelFromImageUrlWithGemini(imageUrl, prompt)
+            result = await getLabelFromImageUrlWithGemini(imageUrl, prompt, geminiModel)
           } else {
             result = await getLabelFromImageUrlWithGPT(imageUrl, prompt)
           }
@@ -93,6 +98,7 @@ export async function processImagesWithGPT(
             label: result.label,
             tokens: result.tokens,
             modelUsed: modelType,
+            ...(result.usageMetadata && { usageMetadata: result.usageMetadata }),
           }
 
           // Mark this image as processed in our map
@@ -187,7 +193,7 @@ export async function getLabelFromImageUrlWithGPT(imageUrl, prompt) {
 }
 
 // Helper function to process a single image URL with Google Gemini
-export async function getLabelFromImageUrlWithGemini(imageUrl, prompt) {
+export async function getLabelFromImageUrlWithGemini(imageUrl, prompt, geminiModel = "gemini-2.5-flash") {
   try {
     console.log(`Fetching image from URL for Gemini: ${imageUrl}`)
     const imgResponse = await fetch(imageUrl)
@@ -203,7 +209,7 @@ export async function getLabelFromImageUrlWithGemini(imageUrl, prompt) {
     const base64Image = buffer.toString("base64")
     console.log("Image fetched and converted to base64 successfully for Gemini")
 
-    return await callGemini(prompt, base64Image, imageUrl)
+    return await callGemini(prompt, base64Image, imageUrl, geminiModel)
   } catch (error) {
     console.error("Error processing image URL with Gemini:", error)
     throw new Error(sanitizeErrorMessage(error))
@@ -255,7 +261,11 @@ export async function callGpt(prompt, imageDataUri, imageSource) {
 }
 
 // Helper function to call Gemini
-export async function callGemini(prompt, base64Image, imageSource) {
+export async function callGemini(prompt, base64Image, imageSource, modelName = "gemini-2.5-flash") {
+  const startTime = Date.now()
+  let geminiResponse = null
+  let error = null
+  
   try {
     console.log(`Calling Gemini for image: ${imageSource.substring(0, 50)}...`)
     console.log(`Using prompt: ${prompt}`)
@@ -267,7 +277,7 @@ export async function callGemini(prompt, base64Image, imageSource) {
 
     // Get the Gemini model
     const model = googleAI.getGenerativeModel({
-      model: "gemini-2.5-flash-preview-04-17",
+      model: modelName,
     })
 
     // Prepare the content parts
@@ -289,30 +299,88 @@ export async function callGemini(prompt, base64Image, imageSource) {
     const response = await result.response
     const text = response.text()
 
-    // Estimate token usage (Gemini doesn't provide token counts directly)
-    // This is a rough estimate based on characters
+    // Extract actual usage metadata from the response
+    const usageMetadata = response.usageMetadata || {}
+    
+    // Store the complete response for logging
+    geminiResponse = {
+      text: text,
+      fullResponse: response,
+      candidates: response.candidates || [],
+      promptFeedback: response.promptFeedback || null,
+      usageMetadata: usageMetadata,
+    }
+
+    // Use actual token counts when available, fallback to estimation
+    const actualTokens = {
+      prompt: usageMetadata.promptTokenCount || 0,
+      completion: (usageMetadata.candidatesTokenCount || 0) + (usageMetadata.thoughtsTokenCount || 0),
+      total: usageMetadata.totalTokenCount || 0,
+    }
+
+    // Fallback estimation for cases where usageMetadata is incomplete
     const promptChars = fullPrompt.length + 1000 // Add 1000 for image (very rough estimate)
     const completionChars = text.length
+    const estimatedTokens = {
+      prompt: Math.ceil(promptChars / 4),
+      completion: Math.ceil(completionChars / 4),
+      total: Math.ceil((promptChars + completionChars) / 4),
+    }
 
-    // Estimate tokens (roughly 4 chars per token)
-    const promptTokens = Math.ceil(promptChars / 4)
-    const completionTokens = Math.ceil(completionChars / 4)
-    const totalTokens = promptTokens + completionTokens
+    // Use actual tokens if available, otherwise use estimates
+    const finalTokens = {
+      prompt: actualTokens.prompt || estimatedTokens.prompt,
+      completion: actualTokens.completion || estimatedTokens.completion,
+      total: actualTokens.total || estimatedTokens.total,
+    }
 
-    console.log(`Gemini response received. Estimated tokens: ${totalTokens}`)
+    const processingTime = Date.now() - startTime
+
+    console.log(`Gemini response received. Actual tokens: ${actualTokens.total}, Estimated tokens: ${estimatedTokens.total}`)
+
+    // Log the complete response
+    logGeminiResponse({
+      prompt: fullPrompt,
+      imageSource,
+      response: geminiResponse,
+      metadata: {
+        model: modelName,
+        processingTime,
+        actualTokens: actualTokens,
+        estimatedTokens: estimatedTokens,
+        usageMetadata: usageMetadata,
+        promptChars,
+        completionChars,
+        imageSize: base64Image ? base64Image.length : 0,
+      },
+    })
 
     return {
       image: imageSource,
       label: text || "No response",
-      tokens: {
-        prompt: promptTokens,
-        completion: completionTokens,
-        total: totalTokens,
-      },
+      tokens: finalTokens,
+      usageMetadata: usageMetadata,
     }
-  } catch (error) {
-    console.error("Error calling Gemini:", error)
+  } catch (err) {
+    error = err
+    const processingTime = Date.now() - startTime
+    
+    console.error("Error calling Gemini:", err)
+
+    // Log the error response
+    logGeminiResponse({
+      prompt: prompt,
+      imageSource,
+      response: null,
+      metadata: {
+        model: modelName,
+        processingTime,
+        imageSize: base64Image ? base64Image.length : 0,
+      },
+      error: err,
+    })
+
     // Always throw a generic error message to avoid exposing API details
-    throw new Error(sanitizeErrorMessage(error))
+    throw new Error(sanitizeErrorMessage(err))
   }
 }

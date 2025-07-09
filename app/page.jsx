@@ -2,10 +2,14 @@
 
 import React, { useState, useEffect } from "react"
 import { useTheme } from "@/components/theme-provider"
-import { processImagesWithGPT, analyzeImages, fetchEventsAPI, fetchDriveThruAPI } from "@/app/actions"
+import { processImagesWithGPT } from "@/app/actions/image-processing"
+import { analyzeImages } from "@/app/actions/manual-upload"
+import { fetchEventsAPI, fetchDriveThruAPI } from "@/app/actions"
 import { fetchScoutAIImages } from "@/app/actions/scout-ai-actions"
+import { calculateActualGeminiCost, calculateEstimatedImageProcessingCost, compareCosts, calculateComprehensiveCosts, getModelDisplayName } from "@/lib/cost-utils"
 import DashboardForm from "@/components/dashboard-form"
 import PasswordModal from "@/components/password-modal"
+import GeminiLogsViewer from "@/components/gemini-logs-viewer"
 import Image from "next/image"
 import { Calculator, Code, Moon, Sun } from "lucide-react"
 import CostCalculator from "@/components/cost-calculator"
@@ -43,7 +47,8 @@ export default function Dashboard() {
   const [apiResponse, setApiResponse] = useState(null)
   const [prompt, setPrompt] = useState("")
   const [activeMode, setActiveMode] = useState("scoutai") // Changed default to scoutai
-  const [selectedModel, setSelectedModel] = useState("gemini") // Default to gemini (Glacier)
+  const [selectedModel, setSelectedModel] = useState("gemini") // Default to gemini
+  const [selectedGeminiModel, setSelectedGeminiModel] = useState("gemini-2.5-flash") // Default Gemini model
   const [isDevMode, setIsDevMode] = useState(false) // Track if dev mode is enabled
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false) // Track if password modal is open
   const [pagination, setPagination] = useState({
@@ -62,6 +67,7 @@ export default function Dashboard() {
   const { theme, setTheme } = useTheme()
   const [showCalculator, setShowCalculator] = useState(false)
   const [autoFetchTriggered, setAutoFetchTriggered] = useState(false)
+  const [logsRefreshTrigger, setLogsRefreshTrigger] = useState(0)
 
   // Events API specific state
   const [eventsApiKey, setEventsApiKey] = useState("")
@@ -160,28 +166,98 @@ export default function Dashboard() {
 
   // Calculate pricing based on token usage and model
   const calculatePricing = () => {
-    // Different pricing for different models
-    let inputRate, outputRate
-
-    if (stats.modelUsed === "gemini") {
-      // Gemini pricing
-      inputRate = 0.15 / 1000000 // $0.15 per 1M tokens
-      outputRate = 0.6 / 1000000 // $0.60 per 1M tokens
-    } else {
-      // GPT pricing
-      inputRate = 0.4 / 1000000 // $0.40 per 1M tokens
-      outputRate = 1.6 / 1000000 // $1.60 per 1M tokens
+    // Collect usage metadata from processed results for actual cost calculation
+    const actualUsageData = results
+      .filter(result => result.usageMetadata && result.modelUsed === 'gemini')
+      .map(result => result.usageMetadata)
+    
+    // Calculate actual costs if we have usage metadata
+    let actualCosts = null
+    if (actualUsageData.length > 0) {
+      // Aggregate usage metadata
+      const aggregatedUsage = actualUsageData.reduce((acc, usage) => ({
+        promptTokenCount: (acc.promptTokenCount || 0) + (usage.promptTokenCount || 0),
+        candidatesTokenCount: (acc.candidatesTokenCount || 0) + (usage.candidatesTokenCount || 0),
+        thoughtsTokenCount: (acc.thoughtsTokenCount || 0) + (usage.thoughtsTokenCount || 0),
+        totalTokenCount: (acc.totalTokenCount || 0) + (usage.totalTokenCount || 0),
+        promptTokensDetails: usage.promptTokensDetails || []
+      }), {})
+      
+      // Use the specific Gemini model for cost calculation
+      const geminiModelUsed = stats.geminiModel || selectedGeminiModel || "gemini-2.5-flash"
+      actualCosts = calculateActualGeminiCost(aggregatedUsage, geminiModelUsed)
     }
 
-    const inputCost = stats.promptTokens * inputRate
-    const outputCost = stats.completionTokens * outputRate
-    const totalCost = inputCost + outputCost
+    // Calculate estimated costs with current pricing
+    const modelUsed = stats.modelUsed || "gemini"
+    const geminiModelUsed = stats.geminiModel || selectedGeminiModel || "gemini-2.5-flash"
+    const currentEstimate = calculateEstimatedImageProcessingCost(stats.processedCount || 1, modelUsed, geminiModelUsed)
+    
+    // Calculate legacy costs for comparison (only for Gemini)
+    let legacyEstimate = null
+    if (modelUsed === "gemini") {
+      // Legacy Gemini pricing for comparison
+      const legacyInputRate = 0.15 / 1000000 // $0.15 per 1M tokens
+      const legacyOutputRate = 0.6 / 1000000 // $0.60 per 1M tokens
+      const legacyInputCost = stats.promptTokens * legacyInputRate
+      const legacyOutputCost = stats.completionTokens * legacyOutputRate
+      legacyEstimate = {
+        type: 'legacy_estimated',
+        model: 'gemini-legacy',
+        totalTokens: stats.totalTokens,
+        inputTokens: stats.promptTokens,
+        outputTokens: stats.completionTokens,
+        inputCost: legacyInputCost,
+        outputCost: legacyOutputCost,
+        totalCost: legacyInputCost + legacyOutputCost
+      }
+    } else {
+      // For GPT, use current pricing as there's no legacy comparison
+      legacyEstimate = currentEstimate
+    }
+
+    const estimatedCosts = {
+      type: 'estimated_current',
+      inputCost: currentEstimate.inputCost.toFixed(6),
+      outputCost: currentEstimate.outputCost.toFixed(6),
+      totalCost: currentEstimate.totalCost.toFixed(6),
+      modelUsed: currentEstimate.model,
+      modelName: currentEstimate.modelName,
+      inputTokens: currentEstimate.inputTokens,
+      outputTokens: currentEstimate.outputTokens,
+      totalTokens: currentEstimate.totalTokens,
+      pricing: currentEstimate.pricing
+    }
+
+    // Add legacy comparison for display
+    const legacyCosts = legacyEstimate ? {
+      type: 'estimated_legacy',
+      inputCost: legacyEstimate.inputCost.toFixed(6),
+      outputCost: legacyEstimate.outputCost.toFixed(6),
+      totalCost: legacyEstimate.totalCost.toFixed(6),
+      modelUsed: legacyEstimate.model,
+      inputTokens: legacyEstimate.inputTokens,
+      outputTokens: legacyEstimate.outputTokens,
+      totalTokens: legacyEstimate.totalTokens,
+    } : null
 
     return {
-      inputCost: inputCost.toFixed(6),
-      outputCost: outputCost.toFixed(6),
-      totalCost: totalCost.toFixed(6),
-      modelUsed: stats.modelUsed,
+      estimated: estimatedCosts,
+      legacy: legacyCosts,
+      actual: actualCosts ? {
+        ...actualCosts,
+        inputCost: actualCosts.inputCost.toFixed(6),
+        outputCost: actualCosts.outputCost.toFixed(6),
+        totalCost: actualCosts.totalCost.toFixed(6),
+      } : null,
+      comparison: actualCosts ? compareCosts(actualCosts, currentEstimate) : null,
+      pricingComparison: legacyCosts && modelUsed === "gemini" ? {
+        costDifference: (currentEstimate.totalCost - legacyEstimate.totalCost).toFixed(6),
+        percentageIncrease: legacyEstimate.totalCost > 0 
+          ? (((currentEstimate.totalCost - legacyEstimate.totalCost) / legacyEstimate.totalCost) * 100).toFixed(1)
+          : "0.0",
+        isCurrentHigher: currentEstimate.totalCost > legacyEstimate.totalCost
+      } : null
     }
   }
 
@@ -260,7 +336,15 @@ export default function Dashboard() {
     setApiResponse(null)
     setPrompt(formData.get("prompt") || "")
     setActiveMode("scoutai")
-    setSelectedModel(formData.get("model_type") || "gpt")
+    
+    // Determine the model being used
+    const modelType = formData.get("model_type") || "gpt"
+    const geminiModel = formData.get("gemini_model") || "gemini-2.5-flash"
+    
+    setSelectedModel(modelType)
+    if (modelType === "gemini") {
+      setSelectedGeminiModel(geminiModel)
+    }
 
     try {
       const response = await fetchScoutAIImages(formData)
@@ -346,10 +430,13 @@ export default function Dashboard() {
         }
       }
 
+      // Use the selected Gemini model from state
+      const geminiModel = selectedGeminiModel
+
       // Show initial progress
       setProgress(5)
 
-      const response = await processImagesWithGPT(images, prompt, indicesToProcess, selectedModel, batchSize)
+      const response = await processImagesWithGPT(images, prompt, indicesToProcess, selectedModel, batchSize, geminiModel)
 
       // Update progress as processing completes
       setProgress(100)
@@ -385,6 +472,11 @@ export default function Dashboard() {
         modelUsed: response.modelUsed || selectedModel,
       })
 
+      // Trigger logs refresh if in dev mode
+      if (isDevMode) {
+        setLogsRefreshTrigger(prev => prev + 1)
+      }
+
       // Show warning if some images failed processing
       if (response.errorCount > 0) {
         // Warning: some images failed to process
@@ -415,7 +507,20 @@ export default function Dashboard() {
     setError(null)
     setActiveMode("manual")
     setPrompt(promptValue)
-    setSelectedModel(formData.get("model_type") || "gpt")
+    
+    // Determine the model being used
+    const modelType = formData.get("model_type") || "gpt"
+    const geminiModel = formData.get("gemini_model") || "gemini-2.5-flash"
+    
+    console.log("🚀 handleManualAnalyze debug:")
+    console.log("  modelType from formData:", modelType)
+    console.log("  geminiModel from formData:", geminiModel)
+    
+    setSelectedModel(modelType)
+    if (modelType === "gemini") {
+      setSelectedGeminiModel(geminiModel)
+      console.log("  ✅ Updated selectedGeminiModel state to:", geminiModel)
+    }
 
     try {
       const response = await analyzeImages(formData)
@@ -451,8 +556,14 @@ export default function Dashboard() {
         promptTokens: response.promptTokens || 0,
         completionTokens: response.completionTokens || 0,
         totalTokens: response.totalTokens || 0,
-        modelUsed: selectedModel,
+        modelUsed: modelType,
+        geminiModel: modelType === "gemini" ? geminiModel : undefined,
       })
+
+      // Trigger logs refresh if in dev mode
+      if (isDevMode) {
+        setLogsRefreshTrigger(prev => prev + 1)
+      }
     } catch (error) {
       setError(
         isDevMode
@@ -1231,12 +1342,19 @@ export default function Dashboard() {
     setSelectedModel(newModel)
   }
 
+  // Handle Gemini model changes from the form
+  const handleGeminiModelChange = (newGeminiModel) => {
+    console.log("🎯 handleGeminiModelChange called with:", newGeminiModel)
+    setSelectedGeminiModel(newGeminiModel)
+    console.log("  ✅ Updated selectedGeminiModel state to:", newGeminiModel)
+  }
+
   // Get pricing information
   const pricing = calculatePricing()
 
   // Get friendly model name for display
   const getFriendlyModelName = (modelType) => {
-    return modelType === "gemini" ? "Glacier-2.5" : "Comet-4.1"
+    return modelType === "gemini" ? "Gemini" : "ChatGPT"
   }
 
   // Clean up object URLs when component unmounts or results change
@@ -1354,6 +1472,9 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* DEBUG: Log current state values */}
+      {isDevMode && console.log("📊 Current state:", { selectedModel, selectedGeminiModel })}
+
       <DashboardForm
         onSubmit={handleFormSubmit}
         currentPage={pagination.currentPage}
@@ -1365,6 +1486,8 @@ export default function Dashboard() {
         onPromptChange={handlePromptChange}
         selectedModel={selectedModel}
         onModelChange={handleModelChange}
+        selectedGeminiModel={selectedGeminiModel}
+        onGeminiModelChange={handleGeminiModelChange}
         isDevMode={isDevMode}
         // Events API specific props
         isEventsKeyValid={isEventsKeyValid}
@@ -1510,24 +1633,75 @@ export default function Dashboard() {
 
           {/* Pricing information */}
           <div className="mt-2 p-3 bg-gray-50 dark:bg-gray-700 rounded-md">
-            <h4 className="text-sm font-medium mb-1">Estimated Cost</h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm">
-              <div>
-                <p>Input: ${pricing.inputCost}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  (${stats.modelUsed === "gemini" ? "0.15" : "0.40"} / 1M tokens)
-                </p>
-              </div>
-              <div>
-                <p>Output: ${pricing.outputCost}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  (${stats.modelUsed === "gemini" ? "0.60" : "1.60"} / 1M tokens)
-                </p>
-              </div>
-              <div>
-                <p className="font-medium">Total: ${pricing.totalCost}</p>
+            {/* Estimated Cost Section */}
+            <div className="mb-4">
+              <h4 className="text-sm font-medium mb-1">Estimated Cost (Legacy Pricing)</h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm">
+                <div>
+                  <p>Input: ${pricing.estimated.inputCost}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    (${stats.modelUsed === "gemini" ? "0.15" : "0.40"} / 1M tokens)
+                  </p>
+                </div>
+                <div>
+                  <p>Output: ${pricing.estimated.outputCost}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    (${stats.modelUsed === "gemini" ? "0.60" : "1.60"} / 1M tokens)
+                  </p>
+                </div>
+                <div>
+                  <p className="font-medium">Total: ${pricing.estimated.totalCost}</p>
+                </div>
               </div>
             </div>
+
+            {/* Actual Cost Section - only show for Gemini when available */}
+            {pricing.actual && (
+              <div className="mb-4 border-t pt-3 border-gray-200 dark:border-gray-600">
+                <h4 className="text-sm font-medium mb-1">Actual Cost (Gemini 2.5 Flash)</h4>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 text-sm">
+                  <div>
+                    <p>Input: ${pricing.actual.inputCost}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      ({pricing.actual.inputTokens} tokens × $0.30/1M)
+                    </p>
+                  </div>
+                  <div>
+                    <p>Output: ${pricing.actual.outputCost}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      ({pricing.actual.outputTokens} tokens × $2.50/1M)
+                    </p>
+                  </div>
+                  <div>
+                    <p className="font-medium">Total: ${pricing.actual.totalCost}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Candidates: {pricing.actual.candidatesTokens || 0}<br/>
+                      Thoughts: {pricing.actual.thoughtsTokens || 0}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Comparison Section */}
+            {pricing.comparison && (
+              <div className="border-t pt-3 border-gray-200 dark:border-gray-600">
+                <h4 className="text-sm font-medium mb-1">Cost Comparison</h4>
+                <div className="text-sm">
+                  <p className={`${pricing.comparison.isActualHigher ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                    Actual vs Estimated: {pricing.comparison.isActualHigher ? '+' : ''}
+                    ${pricing.comparison.totalCostDiff.toFixed(6)} 
+                    ({pricing.comparison.costDiffPercentage.toFixed(1)}%)
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Token difference - Input: {pricing.comparison.inputTokenDiff > 0 ? '+' : ''}{pricing.comparison.inputTokenDiff}, 
+                    Output: {pricing.comparison.outputTokenDiff > 0 ? '+' : ''}{pricing.comparison.outputTokenDiff}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="mt-4">
@@ -2074,6 +2248,13 @@ export default function Dashboard() {
               )
             })}
           </div>
+        </div>
+      )}
+
+      {/* Gemini API Logs Viewer - only in dev mode */}
+      {isDevMode && (
+        <div className="mt-6">
+          <GeminiLogsViewer isDevMode={isDevMode} refreshTrigger={logsRefreshTrigger} />
         </div>
       )}
 

@@ -2,6 +2,7 @@
 
 import { OpenAI } from "openai"
 import { GoogleGenerativeAI } from "@google/generative-ai"
+import { logGeminiResponse } from "../lib/gemini-logger"
 
 // Initialize OpenAI client
 const openai = new OpenAI({
@@ -356,7 +357,30 @@ async function callGpt(prompt, imageDataUri, imageSource) {
 
 // Legacy Gemini function (kept for backward compatibility)
 async function callGemini(prompt, base64Image, imageSource) {
+  const startTime = Date.now()
+  let geminiResponse = null
+  let error = null
+
   try {
+    const requestBody = {
+      contents: [
+        {
+          parts: [
+            { text: prompt },
+            {
+              inline_data: {
+                mime_type: "image/jpeg",
+                data: base64Image,
+              },
+            },
+          ],
+        },
+      ],
+      generationConfig: {
+        maxOutputTokens: 300,
+      },
+    }
+
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GOOGLE_API_KEY}`,
       {
@@ -364,24 +388,7 @@ async function callGemini(prompt, base64Image, imageSource) {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                { text: prompt },
-                {
-                  inline_data: {
-                    mime_type: "image/jpeg",
-                    data: base64Image,
-                  },
-                },
-              ],
-            },
-          ],
-          generationConfig: {
-            maxOutputTokens: 300,
-          },
-        }),
+        body: JSON.stringify(requestBody),
       },
     )
 
@@ -390,12 +397,40 @@ async function callGemini(prompt, base64Image, imageSource) {
     }
 
     const data = await response.json()
+
+    // Store complete response for logging
+    geminiResponse = {
+      ...data,
+      requestBody: requestBody, // Include request body for context
+    }
+
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "No response"
 
     // Estimate tokens
     const estimatedPromptTokens = Math.ceil(prompt.length / 4) + 258
     const estimatedCompletionTokens = Math.ceil(text.length / 4)
     const totalTokens = estimatedPromptTokens + estimatedCompletionTokens
+
+    const processingTime = Date.now() - startTime
+
+    // Log the complete response
+    logGeminiResponse({
+      prompt,
+      imageSource,
+      response: geminiResponse,
+      metadata: {
+        model: "gemini-1.5-flash",
+        processingTime,
+        estimatedTokens: {
+          prompt: estimatedPromptTokens,
+          completion: estimatedCompletionTokens,
+          total: totalTokens,
+        },
+        imageSize: base64Image ? base64Image.length : 0,
+        maxOutputTokens: 300,
+        legacy: true, // Mark as legacy function
+      },
+    })
 
     return {
       image: imageSource,
@@ -408,8 +443,25 @@ async function callGemini(prompt, base64Image, imageSource) {
       processed: true,
       modelUsed: "gemini",
     }
-  } catch (error) {
-    throw new Error(`Error calling Gemini: ${error.message}`)
+  } catch (err) {
+    error = err
+    const processingTime = Date.now() - startTime
+
+    // Log the error response
+    logGeminiResponse({
+      prompt,
+      imageSource,
+      response: null,
+      metadata: {
+        model: "gemini-1.5-flash",
+        processingTime,
+        imageSize: base64Image ? base64Image.length : 0,
+        legacy: true, // Mark as legacy function
+      },
+      error: err,
+    })
+
+    throw new Error(`Error calling Gemini: ${err.message}`)
   }
 }
 
@@ -462,7 +514,30 @@ async function callGPTWithImage(base64Image, prompt) {
 
 // Function to call Google Gemini with image
 async function callGeminiWithImage(base64Image, prompt) {
+  const startTime = Date.now()
+  let geminiResponse = null
+  let error = null
+
   try {
+    const requestBody = {
+      contents: [
+        {
+          parts: [
+            { text: prompt },
+            {
+              inline_data: {
+                mime_type: "image/jpeg",
+                data: base64Image,
+              },
+            },
+          ],
+        },
+      ],
+      generationConfig: {
+        maxOutputTokens: 300,
+      },
+    }
+
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GOOGLE_API_KEY}`,
       {
@@ -470,24 +545,7 @@ async function callGeminiWithImage(base64Image, prompt) {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                { text: prompt },
-                {
-                  inline_data: {
-                    mime_type: "image/jpeg",
-                    data: base64Image,
-                  },
-                },
-              ],
-            },
-          ],
-          generationConfig: {
-            maxOutputTokens: 300,
-          },
-        }),
+        body: JSON.stringify(requestBody),
       },
     )
 
@@ -497,6 +555,12 @@ async function callGeminiWithImage(base64Image, prompt) {
 
     const data = await response.json()
 
+    // Store complete response for logging
+    geminiResponse = {
+      ...data,
+      requestBody: requestBody, // Include request body for context
+    }
+
     // Extract the text from Gemini response
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "No response"
 
@@ -505,19 +569,55 @@ async function callGeminiWithImage(base64Image, prompt) {
     const estimatedCompletionTokens = Math.ceil(text.length / 4)
     const totalTokens = estimatedPromptTokens + estimatedCompletionTokens
 
+    const processingTime = Date.now() - startTime
+
+    // Log the complete response
+    logGeminiResponse({
+      prompt,
+      imageSource: "base64_image_data",
+      response: geminiResponse,
+      metadata: {
+        model: "gemini-1.5-flash",
+        processingTime,
+        estimatedTokens: {
+          prompt: estimatedPromptTokens,
+          completion: estimatedCompletionTokens,
+          total: totalTokens,
+        },
+        imageSize: base64Image ? base64Image.length : 0,
+        maxOutputTokens: 300,
+      },
+    })
+
     return {
       label: text,
       promptTokens: estimatedPromptTokens,
       completionTokens: estimatedCompletionTokens,
       totalTokens: totalTokens,
     }
-  } catch (error) {
-    throw new Error(`Error calling Gemini: ${error.message}`)
+  } catch (err) {
+    error = err
+    const processingTime = Date.now() - startTime
+
+    // Log the error response
+    logGeminiResponse({
+      prompt,
+      imageSource: "base64_image_data",
+      response: null,
+      metadata: {
+        model: "gemini-1.5-flash",
+        processingTime,
+        imageSize: base64Image ? base64Image.length : 0,
+      },
+      error: err,
+    })
+
+    throw new Error(`Error calling Gemini: ${err.message}`)
   }
 }
 
 // Legacy function for manual image uploads (kept for backward compatibility)
-export async function analyzeImages(formData) {
+export async function analyzeImages_DEPRECATED(formData) {
   try {
     const inputType = formData.get("input_type")
     const prompt = formData.get("prompt")

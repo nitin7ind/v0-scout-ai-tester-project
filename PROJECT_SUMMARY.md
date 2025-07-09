@@ -13,8 +13,8 @@ ScoutAI Playground is a Next.js-based web application that serves as a testing a
   - **Manual Upload**: Direct image file uploads for analysis
 
 - **AI Model Integration**: 
-  - **Glacier-2.5 (Google Gemini)**: Default model for cost-effective analysis
-  - **Comet-4.1 (OpenAI GPT-4)**: Alternative model available in developer mode
+  - **Gemini (Google Gemini)**: Default model for cost-effective analysis
+  - **ChatGPT (OpenAI GPT-4)**: Alternative model available in developer mode
 
 - **Prompt Management**: 
   - Pre-defined prompts for common use cases (SmartSafe monitoring, door blocking detection, etc.)
@@ -111,10 +111,10 @@ GOOGLE_API_KEY=your_google_api_key
 5. **Table Clean**: Assess table cleanliness and occupancy
 
 ### Cost Structure
-- **Gemini (Glacier-2.5)**:
+- **Gemini**:
   - Input: $0.15 per 1M tokens (~360 tokens per image)
   - Output: $0.60 per 1M tokens (~25 tokens per image)
-- **GPT (Comet-4.1)**:
+- **ChatGPT**:
   - Input: $0.40 per 1M tokens (~500 tokens per image)
   - Output: $1.60 per 1M tokens (~25 tokens per image)
 

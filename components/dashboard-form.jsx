@@ -38,11 +38,13 @@ export default function DashboardForm({
   totalPages = 1,
   onPageChange,
   curlCommand,
-  activeMode = "scoutai", // Changed default to scoutai
+  activeMode = "events", // Changed default to events
   onModeChange,
   onPromptChange,
   selectedModel = "gpt",
   onModelChange,
+  selectedGeminiModel = "gemini-2.5-flash",
+  onGeminiModelChange,
   isDevMode = false,
   // Events API specific props
   isEventsKeyValid = false,
@@ -77,11 +79,14 @@ export default function DashboardForm({
   onDriveThruTaskChange,
   onDriveThruCameraChange,
 }) {
-  const [inputType, setInputType] = useState(activeMode)
+  const [inputType, setInputType] = useState("events") // Default to 'events'
   const [selectedTask, setSelectedTask] = useState("custom") // Set custom as default
   const [customPrompt, setCustomPrompt] = useState("")
   const [prompt, setPrompt] = useState("")
   const [modelType, setModelType] = useState(isDevMode ? selectedModel : "gemini")
+  const [localSelectedModel, setLocalSelectedModel] = useState(
+    selectedModel === "gpt" ? "gpt" : selectedGeminiModel
+  ) // Track the actual dropdown value locally
   const currentDate = getCurrentDate()
   const yesterdayDate = getYesterdayDate()
   const [companyId, setCompanyId] = useState("")
@@ -112,9 +117,16 @@ export default function DashboardForm({
     if (isDevMode) {
       setModelType(selectedModel)
     } else {
-      setModelType("gemini") // Always use gemini (Glacier) in default mode
+      setModelType("gemini") // Always use gemini in default mode
     }
   }, [selectedModel, isDevMode])
+
+  // Update local selected model when props change
+  useEffect(() => {
+    const newLocalModel = selectedModel === "gpt" ? "gpt" : selectedGeminiModel
+    setLocalSelectedModel(newLocalModel)
+    console.log("📝 Updated localSelectedModel to:", newLocalModel, "based on selectedModel:", selectedModel, "selectedGeminiModel:", selectedGeminiModel)
+  }, [selectedModel, selectedGeminiModel])
 
   // Set prompt based on selected task
   useEffect(() => {
@@ -145,8 +157,28 @@ export default function DashboardForm({
     // Ensure the correct prompt is submitted
     formData.set("prompt", prompt)
 
-    // Add model type to form data
-    formData.set("model_type", modelType)
+    // Determine model type and gemini model from form data
+    const selectedModel = formData.get("model_type")
+    console.log("🔍 Form submission debug:")
+    console.log("  selectedModel from form:", selectedModel)
+    console.log("  inputType:", inputType)
+    
+    if (selectedModel === "gpt") {
+      formData.set("model_type", "gpt")
+      // Remove gemini_model if it exists
+      formData.delete("gemini_model")
+      console.log("  ✅ Set model_type to 'gpt'")
+    } else {
+      // It's a Gemini model variant
+      formData.set("model_type", "gemini")
+      formData.set("gemini_model", selectedModel) // The selected Gemini variant
+      console.log("  ✅ Set model_type to 'gemini'")
+      console.log("  ✅ Set gemini_model to:", selectedModel)
+    }
+    
+    // Final verification
+    console.log("  Final formData model_type:", formData.get("model_type"))
+    console.log("  Final formData gemini_model:", formData.get("gemini_model"))
 
     // Only validate prompt for manual mode, not for scoutai or events
     if (inputType === "manual") {
@@ -236,30 +268,40 @@ export default function DashboardForm({
             <label htmlFor="model_type" className="block text-sm font-medium">
               Select AI Model
             </label>
-            <div className="flex gap-4">
-              <div className="flex items-center space-x-2">
-                <input
-                  type="radio"
-                  id="model_gpt"
-                  name="model_type"
-                  value="gpt"
-                  checked={modelType === "gpt"}
-                  onChange={() => handleModelChange("gpt")}
-                />
-                <label htmlFor="model_gpt">Comet-4.1</label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <input
-                  type="radio"
-                  id="model_gemini"
-                  name="model_type"
-                  value="gemini"
-                  checked={modelType === "gemini"}
-                  onChange={() => handleModelChange("gemini")}
-                />
-                <label htmlFor="model_gemini">Glacier-2.5</label>
-              </div>
-            </div>
+            <select
+              id="model_type"
+              name="model_type"
+              value={localSelectedModel}
+              onChange={(e) => {
+                const value = e.target.value
+                console.log("🎯 Dropdown onChange fired with value:", value)
+                
+                // Update local state immediately
+                setLocalSelectedModel(value)
+                
+                if (value === "gpt") {
+                  handleModelChange("gpt")
+                  console.log("  ✅ Set modelType to 'gpt'")
+                } else {
+                  handleModelChange("gemini")
+                  console.log("  ✅ Set modelType to 'gemini'")
+                  if (onGeminiModelChange) {
+                    onGeminiModelChange(value)
+                    console.log("  ✅ Called onGeminiModelChange with:", value)
+                  }
+                }
+              }}
+              className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+            >
+              <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+              <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+              <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+              <option value="gemini-2.5-flash-lite-preview-06-17">Gemini 2.5 Flash Lite Preview 06-17</option>
+              <option value="gpt">ChatGPT 4.1</option>
+            </select>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Choose the AI model to use for image processing
+            </p>
           </div>
         )}
 
@@ -290,6 +332,17 @@ export default function DashboardForm({
             <div className="flex items-center space-x-2">
               <input
                 type="radio"
+                id="events"
+                name="input_type"
+                value="events"
+                checked={inputType === "events"}
+                onChange={() => handleInputTypeChange("events")}
+              />
+              <label htmlFor="events">Events API</label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="radio"
                 id="scoutai"
                 name="input_type"
                 value="scoutai"
@@ -308,17 +361,6 @@ export default function DashboardForm({
                 onChange={() => handleInputTypeChange("manual")}
               />
               <label htmlFor="manual">Manual Upload or URL</label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <input
-                type="radio"
-                id="events"
-                name="input_type"
-                value="events"
-                checked={inputType === "events"}
-                onChange={() => handleInputTypeChange("events")}
-              />
-              <label htmlFor="events">Events API</label>
             </div>
             <div className="flex items-center space-x-2">
               <input
