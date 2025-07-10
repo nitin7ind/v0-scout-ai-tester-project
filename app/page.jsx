@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react"
 import { useTheme } from "@/components/theme-provider"
 import { processImagesWithGPT } from "@/app/actions/image-processing"
 import { analyzeImages } from "@/app/actions/manual-upload"
-import { fetchEventsAPI, fetchDriveThruAPI } from "@/app/actions"
+import { fetchDriveThruAPI } from "@/app/actions"
 import { fetchScoutAIImages } from "@/app/actions/scout-ai-actions"
 import { calculateActualGeminiCost, calculateEstimatedImageProcessingCost, compareCosts, calculateComprehensiveCosts, getModelDisplayName } from "@/lib/cost-utils"
 import DashboardForm from "@/components/dashboard-form"
@@ -127,13 +127,6 @@ export default function Dashboard() {
     const month = String(yesterday.getMonth() + 1).padStart(2, "0")
     const day = String(yesterday.getDate()).padStart(2, "0")
     return `${year}-${month}-${day}`
-  }
-
-  // Get base URL for Events API based on environment
-  const getEventsBaseUrl = () => {
-    return eventsEnvironment === "production"
-      ? "https://api.wobot.ai/client/v2"
-      : "https://api-staging.wobot.ai/client/v2"
   }
 
   // Auto-fetch on page load
@@ -691,53 +684,38 @@ export default function Dashboard() {
     setEventsEnvironment(environment)
 
     try {
-      const baseUrl =
-        environment === "production" ? "https://api.wobot.ai/client/v2" : "https://api-staging.wobot.ai/client/v2"
-
-      const url = `${baseUrl}/locations/get`
-      console.log("🌐 Events API Key Validation - Request URL:", url)
-
-      const startTime = Date.now()
-      const response = await fetch(url, {
+      // Use the new Events API route for validation
+      const response = await fetch('/api/events', {
+        method: 'POST',
         headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          "User-Agent": "ScoutAI-Playground/1.0",
+          'Content-Type': 'application/json',
         },
-        cache: "no-store",
-        // Add timeout for server environments
-        signal: AbortSignal.timeout(30000), // 30 second timeout
+        body: JSON.stringify({
+          action: 'validate',
+          apiKey: apiKey,
+          environment: environment
+        })
       })
-
-      const fetchTime = Date.now() - startTime
-      console.log(`⏱️  Events API Key Validation - Fetch completed in ${fetchTime}ms, status: ${response.status}`)
 
       if (!response.ok) {
-        const errorText = await response.text()
-        console.error("❌ Events API Key Validation - Response error:", {
-          status: response.status,
-          statusText: response.statusText,
-          errorText: errorText.substring(0, 500),
-          headers: Object.fromEntries(response.headers.entries())
-        })
-        throw new Error(`API key validation failed: ${response.status} - ${errorText}`)
+        const errorData = await response.json()
+        console.error("❌ Events API Key Validation - Response error:", errorData)
+        throw new Error(errorData.error || `API key validation failed: ${response.status}`)
       }
 
-      console.log("📦 Events API Key Validation - Parsing response...")
       const data = await response.json()
       console.log("✅ Events API Key Validation - Response parsed", {
-        status: data.status,
-        locationsCount: data.data?.length || 0
+        success: data.success,
+        locationsCount: data.locations?.length || 0
       })
 
-      if (data.status === 200) {
+      if (data.success) {
         setEventsApiKey(apiKey)
         setIsEventsKeyValid(true)
-        setLocations(data.data || [])
+        setLocations(data.locations || [])
         console.log("🎯 Events API Key Validation - Success")
       } else {
-        throw new Error(data.message || "API key validation failed")
+        throw new Error(data.error || "API key validation failed")
       }
     } catch (error) {
       console.error("💥 Events API Key Validation - Error caught:", {
@@ -760,28 +738,30 @@ export default function Dashboard() {
     setError(null)
 
     try {
-      const url = `${getEventsBaseUrl()}/task/list?location=${locationId}`
-
-      const response = await fetch(url, {
+      const response = await fetch('/api/events', {
+        method: 'POST',
         headers: {
-          Authorization: `Bearer ${eventsApiKey}`,
-          "Content-Type": "application/json",
-          Accept: "application/json",
+          'Content-Type': 'application/json',
         },
-        cache: "no-store",
+        body: JSON.stringify({
+          action: 'tasks',
+          apiKey: eventsApiKey,
+          environment: eventsEnvironment,
+          location: locationId
+        })
       })
 
       if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(`Failed to fetch tasks: ${response.status} - ${errorText}`)
+        const errorData = await response.json()
+        throw new Error(errorData.error || `Failed to fetch tasks: ${response.status}`)
       }
 
       const data = await response.json()
 
-      if (data.status === 200) {
-        setTasks(data.data || [])
+      if (data.success) {
+        setTasks(data.tasks || [])
       } else {
-        throw new Error(data.message || "Failed to fetch tasks")
+        throw new Error(data.error || "Failed to fetch tasks")
       }
     } catch (error) {
       setError(`Failed to fetch tasks: ${error.message}`)
@@ -798,28 +778,31 @@ export default function Dashboard() {
     setError(null)
 
     try {
-      const url = `${getEventsBaseUrl()}/camera/get?location=${locationId}&task=${taskId}`
-
-      const response = await fetch(url, {
+      const response = await fetch('/api/events', {
+        method: 'POST',
         headers: {
-          Authorization: `Bearer ${eventsApiKey}`,
-          "Content-Type": "application/json",
-          Accept: "application/json",
+          'Content-Type': 'application/json',
         },
-        cache: "no-store",
+        body: JSON.stringify({
+          action: 'cameras',
+          apiKey: eventsApiKey,
+          environment: eventsEnvironment,
+          location: locationId,
+          task: taskId
+        })
       })
 
       if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(`Failed to fetch cameras: ${response.status} - ${errorText}`)
+        const errorData = await response.json()
+        throw new Error(errorData.error || `Failed to fetch cameras: ${response.status}`)
       }
 
       const data = await response.json()
 
-      if (data.status === 200) {
-        setCameras(data.data?.data || [])
+      if (data.success) {
+        setCameras(data.cameras || [])
       } else {
-        throw new Error(data.message || "Failed to fetch cameras")
+        throw new Error(data.error || "Failed to fetch cameras")
       }
     } catch (error) {
       setError(`Failed to fetch cameras: ${error.message}`)
@@ -889,56 +872,60 @@ export default function Dashboard() {
     setEventsToDate(toDate)
 
     try {
-      // Build query parameters
-      let queryParams = `?from=${fromDate}&to=${toDate}`
+      // Use the new Events API route instead of server action
+      const response = await fetch('/api/events', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'events',
+          apiKey: eventsApiKey,
+          environment: eventsEnvironment,
+          limit: limit,
+          page: page,
+          from: fromDate,
+          to: toDate,
+          location: locationId,
+          task: taskId,
+          camera: cameraId
+        })
+      })
 
-      if (locationId) {
-        queryParams += `&location=${locationId}`
-      }
-
-      if (taskId) {
-        queryParams += `&task=${taskId}`
-      }
-
-      if (cameraId) {
-        queryParams += `&camera=${cameraId}`
-      }
-
-      const url = `${getEventsBaseUrl()}/events/get/${limit}/${page}${queryParams}`
-
-      // Create a new FormData object for the server action
-      const serverFormData = new FormData()
-      serverFormData.append("api_key", eventsApiKey)
-      serverFormData.append("events_env", eventsEnvironment)
-      serverFormData.append("events_limit", limit.toString())
-      serverFormData.append("events_page", page.toString())
-      serverFormData.append("events_from_date", fromDate)
-      serverFormData.append("events_to_date", toDate)
-      serverFormData.append("events_location", locationId)
-      serverFormData.append("events_task", taskId)
-      serverFormData.append("events_camera", cameraId)
-
-      const response = await fetchEventsAPI(serverFormData)
-
-      // Check for errors
-      if (response.error) {
-        setError(response.error)
+      if (!response.ok) {
+        const errorData = await response.json()
+        setError(errorData.error || `Failed to fetch events: ${response.status}`)
         return
       }
 
+      const data = await response.json()
+
+      // Check for errors
+      if (!data.success) {
+        setError(data.error || 'Failed to fetch events')
+        return
+      }
+
+      // Transform events into image objects for the UI (to maintain compatibility)
+      const images = data.events.map((event, index) => ({
+        image: event.image || "",
+        serialNumber: page * limit + index + 1,
+        eventData: event,
+      }))
+
       // Update state with response data
-      setImages(response.images || [])
+      setImages(images || [])
       setPagination({
-        currentPage: response.currentPage || 1,
-        totalPages: response.totalPages || 1,
-        totalCount: 0,
+        currentPage: data.currentPage || 1,
+        totalPages: data.totalPages || 1,
+        totalCount: data.total || 0,
       })
-      setTotalEvents(response.totalCount || 0)
-      setApiCall(response.apiCall || "")
-      setCurlCommand(response.curlCommand || "")
-      setApiResponse(response.apiResponse)
+      setTotalEvents(data.total || 0)
+      setApiCall(data.apiCall || "")
+      setCurlCommand("") // No curl command from API route
+      setApiResponse(data.apiResponse)
       setStats({
-        totalFetched: response.images?.length || 0,
+        totalFetched: images?.length || 0,
         processedCount: 0,
         promptTokens: 0,
         completionTokens: 0,
