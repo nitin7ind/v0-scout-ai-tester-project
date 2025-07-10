@@ -39,12 +39,7 @@ export default function EventsAPI({ isDevMode = false, selectedGeminiModel = "ge
     geminiModel: selectedGeminiModel,
   })
 
-  // Get base URL based on environment
-  const getBaseUrl = () => {
-    return environment === "production" ? "https://api.wobot.ai/client/v2" : "https://api-staging.wobot.ai/client/v2"
-  }
-
-  // Helper function to get default from date (30 days ago)
+  // Helper function to get default from date (3 days ago)
   function getDefaultFromDate() {
     const date = new Date()
     date.setDate(date.getDate() - 3)
@@ -67,24 +62,31 @@ export default function EventsAPI({ isDevMode = false, selectedGeminiModel = "ge
     setError(null)
 
     try {
-      // Try to fetch locations as a validation test
-      const response = await fetch(`${getBaseUrl()}/locations/get`, {
+      // Use our API route for validation
+      const response = await fetch('/api/events', {
+        method: 'POST',
         headers: {
-          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          action: 'validate',
+          apiKey: apiKey,
+          environment: environment
+        })
       })
 
       if (!response.ok) {
-        throw new Error(`API key validation failed: ${response.status}`)
+        const errorData = await response.json()
+        throw new Error(errorData.error || `API key validation failed: ${response.status}`)
       }
 
       const data = await response.json()
 
-      if (data.status === 200) {
+      if (data.success) {
         setIsKeyValid(true)
-        setLocations(data.data || [])
+        setLocations(data.locations || [])
       } else {
-        throw new Error(data.message || "API key validation failed")
+        throw new Error(data.error || "API key validation failed")
       }
     } catch (error) {
       console.error("API key validation error:", error)
@@ -136,22 +138,30 @@ export default function EventsAPI({ isDevMode = false, selectedGeminiModel = "ge
     setError(null)
 
     try {
-      const response = await fetch(`${getBaseUrl()}/task/list?location=${selectedLocation}`, {
+      const response = await fetch('/api/events', {
+        method: 'POST',
         headers: {
-          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          action: 'tasks',
+          apiKey: apiKey,
+          environment: environment,
+          location: selectedLocation
+        })
       })
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch tasks: ${response.status}`)
+        const errorData = await response.json()
+        throw new Error(errorData.error || `Failed to fetch tasks: ${response.status}`)
       }
 
       const data = await response.json()
 
-      if (data.status === 200) {
-        setTasks(data.data || [])
+      if (data.success) {
+        setTasks(data.tasks || [])
       } else {
-        throw new Error(data.message || "Failed to fetch tasks")
+        throw new Error(data.error || "Failed to fetch tasks")
       }
     } catch (error) {
       console.error("Error fetching tasks:", error)
@@ -169,22 +179,31 @@ export default function EventsAPI({ isDevMode = false, selectedGeminiModel = "ge
     setError(null)
 
     try {
-      const response = await fetch(`${getBaseUrl()}/camera/get?location=${selectedLocation}&task=${selectedTask}`, {
+      const response = await fetch('/api/events', {
+        method: 'POST',
         headers: {
-          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          action: 'cameras',
+          apiKey: apiKey,
+          environment: environment,
+          location: selectedLocation,
+          task: selectedTask
+        })
       })
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch cameras: ${response.status}`)
+        const errorData = await response.json()
+        throw new Error(errorData.error || `Failed to fetch cameras: ${response.status}`)
       }
 
       const data = await response.json()
 
-      if (data.status === 200) {
-        setCameras(data.data?.data || [])
+      if (data.success) {
+        setCameras(data.cameras || [])
       } else {
-        throw new Error(data.message || "Failed to fetch cameras")
+        throw new Error(data.error || "Failed to fetch cameras")
       }
     } catch (error) {
       console.error("Error fetching cameras:", error)
@@ -208,43 +227,42 @@ export default function EventsAPI({ isDevMode = false, selectedGeminiModel = "ge
     setEvents([])
 
     try {
-      // Build query parameters
-      let queryParams = `?from=${fromDate}&to=${toDate}`
-
-      if (selectedLocation) {
-        queryParams += `&location=${selectedLocation}`
-      }
-
-      if (selectedTask) {
-        queryParams += `&task=${selectedTask}`
-      }
-
-      if (selectedCamera) {
-        queryParams += `&camera=${selectedCamera}`
-      }
-
-      const response = await fetch(`${getBaseUrl()}/events/get/${limit}/${page}${queryParams}`, {
+      const response = await fetch('/api/events', {
+        method: 'POST',
         headers: {
-          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          action: 'events',
+          apiKey: apiKey,
+          environment: environment,
+          from: fromDate,
+          to: toDate,
+          location: selectedLocation,
+          task: selectedTask,
+          camera: selectedCamera,
+          limit: limit,
+          page: page
+        })
       })
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch events: ${response.status}`)
+        const errorData = await response.json()
+        throw new Error(errorData.error || `Failed to fetch events: ${response.status}`)
       }
 
       const data = await response.json()
 
-      if (data.status === 200) {
-        setEvents(data.data?.data || [])
-        setTotalPages(data.data?.totalPages || 0)
-        setTotalEvents(data.data?.total || 0)
+      if (data.success) {
+        setEvents(data.events || [])
+        setTotalPages(data.totalPages || 0)
+        setTotalEvents(data.total || 0)
 
         // Reset selected images and processed results
         setSelectedImages([])
         setProcessedResults([])
       } else {
-        throw new Error(data.message || "Failed to fetch events")
+        throw new Error(data.error || "Failed to fetch events")
       }
     } catch (error) {
       console.error("Error fetching events:", error)
