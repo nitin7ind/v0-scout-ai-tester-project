@@ -678,7 +678,10 @@ export default function Dashboard() {
 
   // Validate Events API key
   const validateEventsApiKey = async (apiKey, environment) => {
+    console.log("🔍 Events API Key Validation - Starting", { environment, hasApiKey: !!apiKey })
+    
     if (!apiKey) {
+      console.error("❌ Events API Key Validation - API key is missing")
       setError("API key is required")
       return
     }
@@ -692,31 +695,56 @@ export default function Dashboard() {
         environment === "production" ? "https://api.wobot.ai/client/v2" : "https://api-staging.wobot.ai/client/v2"
 
       const url = `${baseUrl}/locations/get`
+      console.log("🌐 Events API Key Validation - Request URL:", url)
 
+      const startTime = Date.now()
       const response = await fetch(url, {
         headers: {
           Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
           Accept: "application/json",
+          "User-Agent": "ScoutAI-Playground/1.0",
         },
         cache: "no-store",
+        // Add timeout for server environments
+        signal: AbortSignal.timeout(30000), // 30 second timeout
       })
+
+      const fetchTime = Date.now() - startTime
+      console.log(`⏱️  Events API Key Validation - Fetch completed in ${fetchTime}ms, status: ${response.status}`)
 
       if (!response.ok) {
         const errorText = await response.text()
+        console.error("❌ Events API Key Validation - Response error:", {
+          status: response.status,
+          statusText: response.statusText,
+          errorText: errorText.substring(0, 500),
+          headers: Object.fromEntries(response.headers.entries())
+        })
         throw new Error(`API key validation failed: ${response.status} - ${errorText}`)
       }
 
+      console.log("📦 Events API Key Validation - Parsing response...")
       const data = await response.json()
+      console.log("✅ Events API Key Validation - Response parsed", {
+        status: data.status,
+        locationsCount: data.data?.length || 0
+      })
 
       if (data.status === 200) {
         setEventsApiKey(apiKey)
         setIsEventsKeyValid(true)
         setLocations(data.data || [])
+        console.log("🎯 Events API Key Validation - Success")
       } else {
         throw new Error(data.message || "API key validation failed")
       }
     } catch (error) {
+      console.error("💥 Events API Key Validation - Error caught:", {
+        name: error.name,
+        message: error.message,
+        stack: error.stack?.substring(0, 500)
+      })
       setError(`API key validation failed: ${error.message}`)
       setIsEventsKeyValid(false)
     } finally {

@@ -747,6 +747,8 @@ export async function analyzeImages_DEPRECATED(formData) {
 // Add this function to fetch events from the Wobot API
 export async function fetchEventsAPI(formData) {
   try {
+    console.log("🔍 Events API - Starting fetch process")
+    
     // Extract form data
     const apiKey = formData.get("api_key")
     const environment = formData.get("events_env") || "production"
@@ -758,12 +760,26 @@ export async function fetchEventsAPI(formData) {
     const taskId = formData.get("events_task") || ""
     const cameraId = formData.get("events_camera") || ""
 
+    console.log("📝 Events API - Form data:", {
+      environment,
+      limit,
+      page,
+      fromDate,
+      toDate,
+      locationId,
+      taskId,
+      cameraId,
+      hasApiKey: !!apiKey
+    })
+
     // Validate required fields
     if (!apiKey) {
+      console.error("❌ Events API - API key is missing")
       throw new Error("API key is required")
     }
 
     if (!fromDate || !toDate) {
+      console.error("❌ Events API - Date range is missing")
       throw new Error("From date and to date are required")
     }
 
@@ -787,25 +803,47 @@ export async function fetchEventsAPI(formData) {
     }
 
     const fullUrl = `${baseUrl}/events/get/${limit}/${page}${queryParams}`
+    console.log("🌐 Events API - Request URL:", fullUrl)
 
     // Create curl command for debugging
-    const curlCommand = `curl -X GET "${fullUrl}" -H "Authorization: Bearer ${apiKey}"`
+    const curlCommand = `curl -X GET "${fullUrl}" -H "Authorization: Bearer ${apiKey.substring(0, 8)}..."`
+
+    console.log("📡 Events API - Making fetch request...")
+    const startTime = Date.now()
 
     const response = await fetch(fullUrl, {
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
         Accept: "application/json",
+        "User-Agent": "ScoutAI-Playground/1.0",
       },
       cache: "no-store",
+      // Add timeout for server environments
+      signal: AbortSignal.timeout(30000), // 30 second timeout
     })
+
+    const fetchTime = Date.now() - startTime
+    console.log(`⏱️  Events API - Fetch completed in ${fetchTime}ms, status: ${response.status}`)
 
     if (!response.ok) {
       const errorText = await response.text()
+      console.error("❌ Events API - Response error:", {
+        status: response.status,
+        statusText: response.statusText,
+        errorText: errorText.substring(0, 500),
+        headers: Object.fromEntries(response.headers.entries())
+      })
       throw new Error(`API request failed: ${response.status} ${response.statusText} - ${errorText}`)
     }
 
+    console.log("📦 Events API - Parsing response...")
     const responseData = await response.json()
+    console.log("✅ Events API - Response parsed successfully", {
+      hasData: !!responseData.data,
+      eventCount: responseData.data?.data?.length || 0,
+      total: responseData.data?.total || 0
+    })
 
     // Extract events from the response
     const events = responseData.data?.data || []
@@ -819,6 +857,12 @@ export async function fetchEventsAPI(formData) {
       eventData: event,
     }))
 
+    console.log("🎯 Events API - Success", {
+      imagesCount: images.length,
+      totalCount,
+      totalPages
+    })
+
     return {
       images,
       currentPage: page + 1, // Convert to 1-indexed for UI
@@ -830,6 +874,12 @@ export async function fetchEventsAPI(formData) {
       error: null,
     }
   } catch (error) {
+    console.error("💥 Events API - Error caught:", {
+      name: error.name,
+      message: error.message,
+      stack: error.stack?.substring(0, 500)
+    })
+    
     return {
       images: [],
       currentPage: 1,
