@@ -55,8 +55,15 @@ In developer mode (password: `ScoutAI@567`), you'll see a "Gemini API Response L
 #### File System
 Log files are stored in `/logs` directory with the naming pattern:
 ```
-gemini-response-YYYY-MM-DD-HH-MM-SS-{requestId}.json
+gemini-response-{model-variant}-YYYY-MM-DD-HH-MM-SS-{requestId}.json
 ```
+
+Examples:
+- `gemini-response-2.5-flash-2025-07-10-14-23-45-abc123.json`
+- `gemini-response-1.5-flash-2025-07-10-14-23-46-def456.json`
+- `gemini-response-2.0-flash-2025-07-10-14-24-00-xyz789.json`
+
+**Note**: The model variant is extracted from the model name (removing the 'gemini-' prefix) and included in both the filename and log content.
 
 ### Log Management
 

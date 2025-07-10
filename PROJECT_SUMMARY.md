@@ -13,8 +13,13 @@ ScoutAI Playground is a Next.js-based web application that serves as a testing a
   - **Manual Upload**: Direct image file uploads for analysis
 
 - **AI Model Integration**: 
-  - **Gemini (Google Gemini)**: Default model for cost-effective analysis
+  - **Gemini (Google Gemini)**: Multiple model variants available:
+    - **Gemini 2.5 Flash** (default) - Most capable with thinking tokens
+    - Gemini 2.5 Flash-Lite Preview - Cost-optimized version
+    - Gemini 2.0 Flash - Balanced performance and cost
+    - Gemini 1.5 Flash - Legacy model for specific use cases
   - **ChatGPT (OpenAI GPT-4)**: Alternative model available in developer mode
+  - **Dual API Support**: Legacy and new Google AI SDKs for migration flexibility
 
 - **Prompt Management**: 
   - Pre-defined prompts for common use cases (SmartSafe monitoring, door blocking detection, etc.)
@@ -110,13 +115,23 @@ GOOGLE_API_KEY=your_google_api_key
 4. **Product Display Empty**: Check inventory levels in display areas
 5. **Table Clean**: Assess table cleanliness and occupancy
 
-### Cost Structure
-- **Gemini**:
-  - Input: $0.15 per 1M tokens (~360 tokens per image)
-  - Output: $0.60 per 1M tokens (~25 tokens per image)
+### Cost Structure (Updated July 2025)
+- **Gemini Models**:
+  - **2.5 Flash**: Input: $0.30/1M, Output: $2.50/1M (including thinking tokens)
+  - **2.5 Flash-Lite Preview**: Input: $0.10/1M, Output: $0.40/1M
+  - **2.0 Flash**: Input: $0.10/1M, Output: $0.40/1M
+  - **1.5 Flash**: Input: $0.075/1M, Output: $0.30/1M (≤128k prompts)
 - **ChatGPT**:
   - Input: $0.40 per 1M tokens (~500 tokens per image)
   - Output: $1.60 per 1M tokens (~25 tokens per image)
+
+### Dual API Support
+- **Legacy API**: @google/generative-ai (default for safety and stability)
+- **New API**: @google/genai (available via GEMINI_API_VERSION=new env var)
+- **Model-specific configurations**: 
+  - System instructions and thinking config only for 2.5 Flash models
+  - Seed value (42) applied to all models for reproducible results
+  - Automatic API selection based on model capabilities
 
 ## Security Features
 - **Password-Protected Developer Mode**: Prevents unauthorized access to advanced features

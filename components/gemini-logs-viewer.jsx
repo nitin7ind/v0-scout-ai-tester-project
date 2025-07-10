@@ -153,7 +153,11 @@ export default function GeminiLogsViewer({ isDevMode = false, refreshTrigger = 0
                     {logs.map((log, index) => (
                       <div
                         key={index}
-                        className="p-2 border rounded hover:bg-gray-50 cursor-pointer"
+                        className={`p-2 border rounded cursor-pointer transition-colors ${
+                          selectedLog && selectedLog.filename === log.filename
+                            ? 'bg-blue-50 border-blue-300 shadow-sm'
+                            : 'hover:bg-gray-50'
+                        }`}
                         onClick={() => viewLog(log.filename)}
                       >
                         <div className="font-mono text-xs break-all mb-1">

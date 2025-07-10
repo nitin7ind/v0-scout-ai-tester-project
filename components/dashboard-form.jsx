@@ -294,15 +294,22 @@ export default function DashboardForm({
               className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
             >
               <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+              <option value="gemini-2.5-flash-lite-preview-06-17">Gemini 2.5 Flash Lite Preview 06-17</option>
               <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
               <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
-              <option value="gemini-2.5-flash-lite-preview-06-17">Gemini 2.5 Flash Lite Preview 06-17</option>
               <option value="gpt">ChatGPT 4.1</option>
             </select>
             <p className="text-xs text-gray-500 dark:text-gray-400">
               Choose the AI model to use for image processing
             </p>
           </div>
+        )}
+
+        {/* When not in dev mode, send the default Gemini model as hidden fields */}
+        {!isDevMode && (
+          <>
+            <input type="hidden" name="model_type" value={localSelectedModel} />
+          </>
         )}
 
         {/* Add a batch size option for developers */}

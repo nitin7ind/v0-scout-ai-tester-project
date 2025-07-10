@@ -63,6 +63,7 @@ export default function Dashboard() {
     completionTokens: 0,
     totalTokens: 0,
     modelUsed: "gpt",
+    geminiModel: "gemini-2.5-flash",
   })
   const { theme, setTheme } = useTheme()
   const [showCalculator, setShowCalculator] = useState(false)
@@ -249,6 +250,8 @@ export default function Dashboard() {
         inputCost: actualCosts.inputCost.toFixed(6),
         outputCost: actualCosts.outputCost.toFixed(6),
         totalCost: actualCosts.totalCost.toFixed(6),
+        inputRate: `$${(actualCosts.pricing.inputRate * 1000000).toFixed(2)}`,
+        outputRate: `$${(actualCosts.pricing.outputRate * 1000000).toFixed(2)}`,
       } : null,
       comparison: actualCosts ? compareCosts(actualCosts, currentEstimate) : null,
       pricingComparison: legacyCosts && modelUsed === "gemini" ? {
@@ -297,6 +300,7 @@ export default function Dashboard() {
       completionTokens: 0,
       totalTokens: 0,
       modelUsed: selectedModel,
+      geminiModel: selectedModel === "gemini" ? selectedGeminiModel : "gemini-2.5-flash",
     })
     setActiveMode(mode)
 
@@ -372,6 +376,7 @@ export default function Dashboard() {
         completionTokens: 0,
         totalTokens: 0,
         modelUsed: selectedModel,
+        geminiModel: selectedModel === "gemini" ? selectedGeminiModel : "gemini-2.5-flash",
       })
 
       // Show error if no images were fetched
@@ -470,6 +475,7 @@ export default function Dashboard() {
         completionTokens: response.completionTokens || 0,
         totalTokens: response.totalTokens || 0,
         modelUsed: response.modelUsed || selectedModel,
+        geminiModel: selectedModel === "gemini" ? geminiModel : undefined,
       })
 
       // Trigger logs refresh if in dev mode
@@ -910,6 +916,7 @@ export default function Dashboard() {
         completionTokens: 0,
         totalTokens: 0,
         modelUsed: selectedModel,
+        geminiModel: selectedModel === "gemini" ? selectedGeminiModel : "gemini-2.5-flash",
       })
 
       // Show error if no images were fetched
@@ -1113,6 +1120,7 @@ export default function Dashboard() {
         completionTokens: 0,
         totalTokens: 0,
         modelUsed: selectedModel,
+        geminiModel: selectedModel === "gemini" ? selectedGeminiModel : "gemini-2.5-flash",
       })
 
       // Show error if no images were fetched
@@ -1633,8 +1641,45 @@ export default function Dashboard() {
 
           {/* Pricing information */}
           <div className="mt-2 p-3 bg-gray-50 dark:bg-gray-700 rounded-md">
+            {/* Actual Cost Section - only show for Gemini when available */}
+            {pricing.actual && (
+              <div className="mb-4">
+                <h4 className="text-sm font-medium mb-1">
+                  Actual Cost ({getModelDisplayName(pricing.actual.model) || 'Gemini'})
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-2 text-sm">
+                  <div>
+                    <p>Input: ${pricing.actual.inputCost}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      ({pricing.actual.inputTokens} tokens × ${pricing.actual.inputRate}/1M)
+                    </p>
+                  </div>
+                  <div>
+                    <p>Output: ${pricing.actual.outputCost}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      ({pricing.actual.outputTokens} tokens × ${pricing.actual.outputRate}/1M)
+                    </p>
+                  </div>
+                  <div>
+                    <p className="font-medium">Total: ${pricing.actual.totalCost}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {Math.floor(1 / (parseFloat(pricing.actual.totalCost) / stats.processedCount))} images per $1
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Candidates: {pricing.actual.candidatesTokens || 0}<br/>
+                      Thoughts: {pricing.actual.thoughtsTokens || 0}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Estimated Cost Section */}
-            <div className="mb-4">
+            {/* Estimated Cost Section - COMMENTED OUT */}
+            {/* 
+            <div className={`${pricing.actual ? 'border-t pt-3 border-gray-200 dark:border-gray-600' : ''} mb-4`}>
               <h4 className="text-sm font-medium mb-1">Estimated Cost (Legacy Pricing)</h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm">
                 <div>
@@ -1654,38 +1699,10 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
+            */}
 
-            {/* Actual Cost Section - only show for Gemini when available */}
-            {pricing.actual && (
-              <div className="mb-4 border-t pt-3 border-gray-200 dark:border-gray-600">
-                <h4 className="text-sm font-medium mb-1">Actual Cost (Gemini 2.5 Flash)</h4>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 text-sm">
-                  <div>
-                    <p>Input: ${pricing.actual.inputCost}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      ({pricing.actual.inputTokens} tokens × $0.30/1M)
-                    </p>
-                  </div>
-                  <div>
-                    <p>Output: ${pricing.actual.outputCost}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      ({pricing.actual.outputTokens} tokens × $2.50/1M)
-                    </p>
-                  </div>
-                  <div>
-                    <p className="font-medium">Total: ${pricing.actual.totalCost}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Candidates: {pricing.actual.candidatesTokens || 0}<br/>
-                      Thoughts: {pricing.actual.thoughtsTokens || 0}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Comparison Section */}
+            {/* Comparison Section - COMMENTED OUT */}
+            {/*
             {pricing.comparison && (
               <div className="border-t pt-3 border-gray-200 dark:border-gray-600">
                 <h4 className="text-sm font-medium mb-1">Cost Comparison</h4>
@@ -1702,6 +1719,7 @@ export default function Dashboard() {
                 </div>
               </div>
             )}
+            */}
           </div>
 
           <div className="mt-4">

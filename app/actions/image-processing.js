@@ -2,16 +2,26 @@
 
 import { OpenAI } from "openai"
 import { GoogleGenerativeAI } from "@google/generative-ai"
+import { GoogleGenAI } from "@google/genai"
 import { makeSerializable } from "./utils"
 import { logGeminiResponse } from "../../lib/gemini-logger"
+
+// Configuration for which Gemini API to use
+// Set this to 'new' to use @google/genai, or 'legacy' to use @google/generative-ai
+const GEMINI_API_VERSION = process.env.GEMINI_API_VERSION || 'legacy' // Default to legacy for safety
 
 // Initialize OpenAI client
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 })
 
-// Initialize Google Generative AI client
+// Initialize Google Generative AI client (legacy)
 const googleAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || "")
+
+// Initialize new Google Gen AI client
+const googleGenAI = new GoogleGenAI({
+  apiKey: process.env.GOOGLE_API_KEY || ""
+})
 
 // Helper function to sanitize error messages for user display
 function sanitizeErrorMessage(error) {
@@ -30,7 +40,7 @@ export async function processImagesWithGPT(
   selectedImageIndices = null,
   modelType = "gpt",
   batchSize = 10,
-  geminiModel = "gemini-2.5-flash", // Default: 2.5 Flash | Dev options: "gemini-1.5-flash", "gemini-2.0-flash-exp"
+  geminiModel = "gemini-2.5-flash", // Default: 2.5 Flash
 ) {
   try {
     // If selectedImageIndices is provided and not empty, filter images to process only selected ones
@@ -209,7 +219,7 @@ export async function getLabelFromImageUrlWithGemini(imageUrl, prompt, geminiMod
     const base64Image = buffer.toString("base64")
     console.log("Image fetched and converted to base64 successfully for Gemini")
 
-    return await callGemini(prompt, base64Image, imageUrl, geminiModel)
+    return await callGeminiWithVersion(prompt, base64Image, imageUrl, geminiModel)
   } catch (error) {
     console.error("Error processing image URL with Gemini:", error)
     throw new Error(sanitizeErrorMessage(error))
@@ -260,14 +270,25 @@ export async function callGpt(prompt, imageDataUri, imageSource) {
   }
 }
 
-// Helper function to call Gemini
+// Wrapper function that chooses which Gemini API to use based on configuration
+export async function callGeminiWithVersion(prompt, base64Image, imageSource, modelName = "gemini-2.5-flash") {
+  if (GEMINI_API_VERSION === 'new') {
+    console.log('Using new @google/genai API')
+    return await callGeminiNewAPI(prompt, base64Image, imageSource, modelName)
+  } else {
+    console.log('Using legacy @google/generative-ai API')
+    return await callGemini(prompt, base64Image, imageSource, modelName)
+  }
+}
+
+// Helper function to call Gemini (LEGACY using @google/generative-ai)
 export async function callGemini(prompt, base64Image, imageSource, modelName = "gemini-2.5-flash") {
   const startTime = Date.now()
   let geminiResponse = null
   let error = null
   
   try {
-    console.log(`Calling Gemini for image: ${imageSource.substring(0, 50)}...`)
+    console.log(`Calling Gemini (legacy API) for image: ${imageSource.substring(0, 50)}...`)
     console.log(`Using prompt: ${prompt}`)
 
     // Check if API key is available
@@ -275,7 +296,11 @@ export async function callGemini(prompt, base64Image, imageSource, modelName = "
       throw new Error(sanitizeErrorMessage("API key not available"))
     }
 
-    // Get the Gemini model
+    // Create the system prompt and user prompt
+    const systemPrompt = "You are a visual analysis assistant examining images from a restaurant or food service environment."
+    const fullPrompt = `${systemPrompt}\n\n${prompt}`
+
+    // Get the Gemini model using the legacy API
     const model = googleAI.getGenerativeModel({
       model: modelName,
     })
@@ -288,26 +313,17 @@ export async function callGemini(prompt, base64Image, imageSource, modelName = "
       },
     }
 
-    // Create the system prompt and user prompt
-    const systemPrompt =
-      "You are a visual analysis assistant examining images from a restaurant or food service environment."
-    const fullPrompt = `${systemPrompt}\n\n${prompt}`
-
     // Generate content with the image
     const result = await model.generateContent([fullPrompt, imagePart])
 
     const response = await result.response
     const text = response.text()
-
-    // Extract actual usage metadata from the response
     const usageMetadata = response.usageMetadata || {}
     
     // Store the complete response for logging
     geminiResponse = {
       text: text,
       fullResponse: response,
-      candidates: response.candidates || [],
-      promptFeedback: response.promptFeedback || null,
       usageMetadata: usageMetadata,
     }
 
@@ -336,7 +352,7 @@ export async function callGemini(prompt, base64Image, imageSource, modelName = "
 
     const processingTime = Date.now() - startTime
 
-    console.log(`Gemini response received. Actual tokens: ${actualTokens.total}, Estimated tokens: ${estimatedTokens.total}`)
+    console.log(`Gemini (legacy API) response received. Actual tokens: ${actualTokens.total}, Estimated tokens: ${estimatedTokens.total}`)
 
     // Log the complete response
     logGeminiResponse({
@@ -352,6 +368,7 @@ export async function callGemini(prompt, base64Image, imageSource, modelName = "
         promptChars,
         completionChars,
         imageSize: base64Image ? base64Image.length : 0,
+        apiVersion: "generative-ai-v0.21.0"
       },
     })
 
@@ -365,7 +382,7 @@ export async function callGemini(prompt, base64Image, imageSource, modelName = "
     error = err
     const processingTime = Date.now() - startTime
     
-    console.error("Error calling Gemini:", err)
+    console.error("Error calling Gemini (legacy API):", err)
 
     // Log the error response
     logGeminiResponse({
@@ -376,6 +393,144 @@ export async function callGemini(prompt, base64Image, imageSource, modelName = "
         model: modelName,
         processingTime,
         imageSize: base64Image ? base64Image.length : 0,
+        apiVersion: "generative-ai-v0.21.0"
+      },
+      error: err,
+    })
+
+    // Always throw a generic error message to avoid exposing API details
+    throw new Error(sanitizeErrorMessage(err))
+  }
+}
+
+// Helper function to call Gemini using the new @google/genai API
+export async function callGeminiNewAPI(prompt, base64Image, imageSource, modelName = "gemini-2.5-flash") {
+  const startTime = Date.now()
+  let geminiResponse = null
+  let error = null
+  
+  try {
+    console.log(`Calling Gemini (new @google/genai API) for image: ${imageSource.substring(0, 50)}...`)
+    console.log(`Using prompt: ${prompt}`)
+
+    // Check if API key is available
+    if (!process.env.GOOGLE_API_KEY) {
+      throw new Error(sanitizeErrorMessage("API key not available"))
+    }
+
+    // Create the system prompt and user prompt
+    // const systemPrompt = "You are a visual analysis assistant examining images from a restaurant or food service environment."
+    // const fullPrompt = `${systemPrompt}\n\n${prompt}`
+    const fullPrompt = prompt // Use the prompt directly, no system instruction needed for new API
+
+    // Prepare the contents array with the new API structure
+    const contents = [
+      {
+        inlineData: {
+          mimeType: "image/jpeg",
+          data: base64Image,
+        },
+      },
+      { text: fullPrompt },
+    ]
+
+    // Prepare the request config
+    const requestConfig = {
+      model: modelName,
+      contents: contents,
+      config: {
+        seed: 42  // Use seed for all models
+      }
+    }
+
+    // Only add thinkingConfig and systemInstruction for 2.5 Flash models that support it
+    if (modelName.includes('2.5-flash')) {
+      requestConfig.config.systemInstruction = "You are a visual analysis assistant examining images from a restaurant or food service environment."
+      requestConfig.config.thinkingConfig = {
+        thinkingBudget: 0,
+      }
+    }
+
+    // Generate content using the new API
+    const response = await googleGenAI.models.generateContent(requestConfig)
+
+    const text = response.text
+    const usageMetadata = response.usageMetadata || {}
+    
+    // Store the complete response for logging
+    geminiResponse = {
+      text: text,
+      fullResponse: response,
+      usageMetadata: usageMetadata,
+    }
+
+    // Use actual token counts when available, fallback to estimation
+    const actualTokens = {
+      prompt: usageMetadata.promptTokenCount || 0,
+      completion: (usageMetadata.candidatesTokenCount || 0) + (usageMetadata.thoughtsTokenCount || 0),
+      total: usageMetadata.totalTokenCount || 0,
+    }
+
+    // Fallback estimation for cases where usageMetadata is incomplete
+    const promptChars = fullPrompt.length + 1000 // Add 1000 for image (very rough estimate)
+    const completionChars = text.length
+    const estimatedTokens = {
+      prompt: Math.ceil(promptChars / 4),
+      completion: Math.ceil(completionChars / 4),
+      total: Math.ceil((promptChars + completionChars) / 4),
+    }
+
+    // Use actual tokens if available, otherwise use estimates
+    const finalTokens = {
+      prompt: actualTokens.prompt || estimatedTokens.prompt,
+      completion: actualTokens.completion || estimatedTokens.completion,
+      total: actualTokens.total || estimatedTokens.total,
+    }
+
+    const processingTime = Date.now() - startTime
+
+    console.log(`Gemini (new API) response received. Actual tokens: ${actualTokens.total}, Estimated tokens: ${estimatedTokens.total}`)
+
+    // Log the complete response
+    logGeminiResponse({
+      prompt: fullPrompt,
+      imageSource,
+      response: geminiResponse,
+      metadata: {
+        model: modelName,
+        processingTime,
+        actualTokens: actualTokens,
+        estimatedTokens: estimatedTokens,
+        usageMetadata: usageMetadata,
+        promptChars,
+        completionChars,
+        imageSize: base64Image ? base64Image.length : 0,
+        apiVersion: "new-genai-v1.8.0"
+      },
+    })
+
+    return {
+      image: imageSource,
+      label: text || "No response",
+      tokens: finalTokens,
+      usageMetadata: usageMetadata,
+    }
+  } catch (err) {
+    error = err
+    const processingTime = Date.now() - startTime
+    
+    console.error("Error calling Gemini (new API):", err)
+
+    // Log the error response
+    logGeminiResponse({
+      prompt: prompt,
+      imageSource,
+      response: null,
+      metadata: {
+        model: modelName,
+        processingTime,
+        imageSize: base64Image ? base64Image.length : 0,
+        apiVersion: "new-genai-v1.8.0"
       },
       error: err,
     })

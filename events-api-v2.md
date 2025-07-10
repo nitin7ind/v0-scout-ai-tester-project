@@ -1,5 +1,7 @@
 # Events API V2
 
+> **Note**: This documentation describes the Wobot Events API V2 that is integrated with the ScoutAI Playground. This API is used as one of the data sources for image analysis in the Scout AI application.
+
 When using Wobot AI, you might want to export and use the events in your own analytics or logging platforms. The Events API allows you to fetch Task Events on demand.
 
 The API is designed to be simple yet flexible, allowing you to export your data in an efficient and streamlined manner.

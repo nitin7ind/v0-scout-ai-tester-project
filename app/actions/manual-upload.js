@@ -3,7 +3,7 @@
 import { makeSerializable } from "./utils"
 import { getLabelFromImageUrlWithGPT, getLabelFromImageUrlWithGemini } from "./image-processing"
 import { callGpt } from "./image-processing"
-import { callGemini } from "./image-processing"
+import { callGeminiWithVersion } from "./image-processing"
 
 // Helper function to process an uploaded file
 export async function getLabelFromUploadedFile(file, prompt, modelType = "gpt", geminiModel = "gemini-2.5-flash") {
@@ -17,7 +17,7 @@ export async function getLabelFromUploadedFile(file, prompt, modelType = "gpt", 
     const base64Image = buffer.toString("base64")
 
     if (modelType === "gemini") {
-      return await callGemini(prompt, base64Image, "Uploaded Image", geminiModel)
+      return await callGeminiWithVersion(prompt, base64Image, "Uploaded Image", geminiModel)
     } else {
       const imageDataUri = `data:image/jpeg;base64,${base64Image}`
       return await callGpt(prompt, imageDataUri, "Uploaded Image")

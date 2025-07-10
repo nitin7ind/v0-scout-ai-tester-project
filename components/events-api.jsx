@@ -36,6 +36,7 @@ export default function EventsAPI({ isDevMode = false, selectedGeminiModel = "ge
     completionTokens: 0,
     totalTokens: 0,
     modelUsed: "gemini",
+    geminiModel: selectedGeminiModel,
   })
 
   // Get base URL based on environment
@@ -324,6 +325,7 @@ export default function EventsAPI({ isDevMode = false, selectedGeminiModel = "ge
         completionTokens: response.completionTokens || 0,
         totalTokens: response.totalTokens || 0,
         modelUsed: response.modelUsed || modelType,
+        geminiModel: modelType === "gemini" ? geminiModel : undefined,
       })
     } catch (error) {
       console.error("Error processing images:", error)
