@@ -11,6 +11,11 @@
       "prompt": "You are an image analysis expert specializing in retail safety and compliance. Analyze the provided image and focus primarily on the partially-transparent door in the bottom-right. Determine whether the door is blocked, defined as having objects, equipment, or obstructions that would prevent it from opening fully or being used as an exit. Ignore minor items that clearly do not impede access or egress. Note that there might be features present as a part of the floor too. If any door is visibly blocked, respond with Door Blocked. If all doors are clear and accessible, respond with Door Not Blocked. Your response must be only one of the two phrases Door Blocked or Door Not Blocked with no additional explanation."
     },
     {
+      "id": "table-clean",
+      "name": "Table Clean",
+      "prompt": "Analyze this image of restaurant tables and determine if they are clean or not. Describe any visible debris, stains, or mess. If food is present on the table with a person sitting, then its table occupied.  Consider Occupied table to be clean. Reply with Clean or Not Clean or Occupied. Nothing else."
+    },
+    {
       "id": "open-drink-container",
       "name": "Open Drink Container",
       "prompt": "You are a visual analysis assistant examining overhead images of a food prep counter at a Quick Service Restaurant (QSR). Analyze the area around the POS station and check for drink containers. If any drink container near the POS is visibly missing its cap or lid, respond with 'Open Drink Container'. Ignore containers that are sealed, far from the POS, or stacked upside down. If all containers near the POS are sealed or none are present, respond with 'No Open Drink Container'. Return only one of these two phrases with no additional explanation."
@@ -19,11 +24,6 @@
       "id": "product-display-empty",
       "name": "Product Display Empty",
       "prompt": "You are a visual analysis assistant examining overhead images of a food preparation counter at a Quick Service Restaurant (QSR). Focus on the product display tray typically used for items like snacks or condiments. If the tray is empty and the bottom is clearly visible, return Product Display Empty. If the tray contains products and the bottom is not visible, return Product Display Full. Return only one of these two phrases with no additional text."
-    },
-    {
-      "id": "table-clean",
-      "name": "Table Clean",
-      "prompt": "Analyze this image of restaurant tables and determine if they are clean or not. Describe any visible debris, stains, or mess. If food is present on the table with a person sitting, then its table occupied.  Consider Occupied table to be clean. Reply with Clean or Not Clean or Occupied. Nothing else."
     },
     {
       "id": "car-analysis",
