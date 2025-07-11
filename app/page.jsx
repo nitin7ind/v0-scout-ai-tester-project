@@ -434,7 +434,26 @@ export default function Dashboard() {
       // Show initial progress
       setProgress(5)
 
+      // Debug logging for image processing
+      console.log("🔍 Debug - Processing images:", {
+        totalImages: images.length,
+        selectedImages: selectedImages,
+        indicesToProcess: indicesToProcess,
+        prompt: prompt.substring(0, 100),
+        selectedModel: selectedModel,
+        batchSize: batchSize,
+        geminiModel: geminiModel
+      })
+
       const response = await processImagesWithGPT(images, prompt, indicesToProcess, selectedModel, batchSize, geminiModel)
+
+      // Debug logging for response
+      console.log("🔍 Debug - Processing response:", {
+        hasError: !!response.error,
+        resultsCount: response.results?.length || 0,
+        processedCount: response.processedCount || 0,
+        error: response.error
+      })
 
       // Update progress as processing completes
       setProgress(100)
@@ -481,6 +500,12 @@ export default function Dashboard() {
         // Warning: some images failed to process
       }
     } catch (error) {
+      console.error("🔍 Debug - Processing error:", {
+        name: error.name,
+        message: error.message,
+        stack: error.stack?.substring(0, 500)
+      })
+      
       setError(
         isDevMode
           ? `Error processing images: ${error instanceof Error ? error.message : String(error)}`
@@ -911,6 +936,8 @@ export default function Dashboard() {
         image: event.image || "",
         serialNumber: page * limit + index + 1,
         eventData: event,
+        processed: false, // Add processed field for compatibility
+        label: null, // Add label field for compatibility
       }))
 
       // Update state with response data
@@ -935,10 +962,13 @@ export default function Dashboard() {
       })
 
       // Show error if no images were fetched
-      if (!response.images || response.images.length === 0) {
+      if (!images || images.length === 0) {
         setError(
           "No events were found. The Events API returned zero events. Please check your input parameters (task ID, dates) and try again.",
         )
+      } else {
+        // Clear error if images were successfully fetched
+        setError(null)
       }
     } catch (error) {
       setError(`Error fetching events: ${error instanceof Error ? error.message : String(error)}`)
